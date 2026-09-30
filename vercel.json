@@ -32,13 +32,61 @@
       ]
     },
     {
-      "source": "/(favicon\\.svg|apple-touch-icon\\.png|og\\.png)",
+      "source": "/(favicon\\.svg|apple-touch-icon\\.png|og\\.png|site\\.webmanifest)",
       "headers": [
         {
           "key": "Cache-Control",
           "value": "public, max-age=86400"
         }
       ]
+    },
+    {
+      "source": "/og/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.md",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)llms(-full)?\\.txt",
+      "headers": [
+        {
+          "key": "Content-Type",
+          "value": "text/plain; charset=utf-8"
+        },
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex"
+        }
+      ]
+    }
+  ],
+  "redirects": [
+    {
+      "source": "/:path*",
+      "has": [
+        {
+          "type": "host",
+          "value": "www.superintelligence.ro"
+        }
+      ],
+      "destination": "https://superintelligence.ro/:path*",
+      "permanent": true
     }
   ]
 }

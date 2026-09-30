@@ -1,0 +1,847 @@
+---
+title: "Runtime lines: cum rulează de fapt Node.js și Python codul tău"
+description: "Un material de referință interactiv și vizual pentru ingineri full-stack care se pregătesc de interviuri: event loop-ul Node.js, memoria Python și GIL-ul, sistemele de tipuri din JavaScript și Python, pas cu pas, cu întrebări de interviu pentru fiecare."
+url: https://superintelligence.ro/ro
+alternate_en: https://superintelligence.ro/index.md
+alternate_ro: https://superintelligence.ro/ro/index.md
+---
+
+Un material de referință interactiv pentru interviurile full-stack
+
+# Cum rulează de fapt Node.js și Python codul tău
+
+Cinci explicații interactive, desenate ca linii pe o hartă de metrou. Parcurge programe reale linie cu linie și urmărește cum se mișcă stiva de apeluri (call stack), heap-ul, GIL-ul și sistemul de tipuri. Fiecare output a fost verificat pe Node.js și CPython reale, iar fiecare linie se încheie cu întrebările de interviu pentru care te pregătește.
+[Începe cu event loop-ul](https://superintelligence.ro/ro/node)
+
+## NEvent loop-ul Node
+
+Cum jonglează un singur thread cu mii de sarcini: stiva de apeluri (call stack), cozile nextTick și de promise-uri, timerele, fazele libuv și thread pool-ul.
+Vei ști să răspunzi la
+- Rulează callback-ul unui promise înainte de `setTimeout(fn, 0)`?
+- `setImmediate` sau `setTimeout`: care se declanșează primul?
+- Ce blochează event loop-ul și cum repari asta?
+[Deschide linia](https://superintelligence.ro/ro/node) [Întrebări de interviu](https://superintelligence.ro/ro/node#n-ref)
+
+## MMemoria Python
+
+Nume, obiecte și numărul de referințe, cum eliberează colectorul de cicluri ce nu poate elibera numărarea referințelor și de ce pymalloc păstrează memoria după ce ștergi lucruri.
+Vei ști să răspunzi la
+- Python transmite argumentele prin valoare sau prin referință?
+- Care e diferența dintre `is` și `==`?
+- De ce nu scade memoria după `del`?
+[Deschide linia](https://superintelligence.ro/ro/memory) [Întrebări de interviu](https://superintelligence.ro/ro/memory#m-ref)
+
+## GGIL-ul
+
+Patru thread-uri și un singur lock pe o cronologie live: muncă limitată de CPU versus muncă limitată de I/O, Python free-threaded, procese și un race condition (condiție de cursă) pe care îl poți parcurge pas cu pas.
+Vei ști să răspunzi la
+- Fac thread-urile codul Python mai rapid?
+- Face GIL-ul codul meu thread-safe?
+- Thread-uri, procese sau asyncio: cum alegi?
+[Deschide linia](https://superintelligence.ro/ro/gil) [Întrebări de interviu](https://superintelligence.ro/ro/gil#g-ref)
+
+## JTipuri JavaScript
+
+Macazul `typeof`, cum stochează V8 fiecare tip, copii versus referințe, algoritmul exact al lui `==`, valorile truthy și falsy și cei 64 de biți dintr-un număr.
+Vei ști să răspunzi la
+- De ce `[] == false` dă true?
+- Copie superficială sau copie profundă?
+- De ce `0.1 + 0.2 !== 0.3` dă true?
+[Deschide linia](https://superintelligence.ro/ro/js-types) [Întrebări de interviu](https://superintelligence.ro/ro/js-types#j-ref)
+
+## PTipuri Python
+
+Tipurile built-in și unde să-l folosești pe fiecare, cum se face dispatch-ul pentru `a + b`, când `+=` modifică obiectul pe loc și cum se calculează hash-ul cheilor dintr-un dict.
+Vei ști să răspunzi la
+- Ce face ca un obiect să fie hashable?
+- Ce se întâmplă când Python evaluează `a + b`?
+- Ce problemă are `def f(items=[])`?
+[Deschide linia](https://superintelligence.ro/ro/py-types) [Întrebări de interviu](https://superintelligence.ro/ro/py-types#p-ref)
+
+### Parcurge pas cu pas
+
+**Pornește**, **Înainte** și **Înapoi** te mută câte o linie de cod. Folosește ← și → ca să avansezi pas cu pas, Space ca să pornești redarea și alege viteza care ți se potrivește.
+
+### Rezultate pe care te poți baza
+
+Fiecare output afișat a fost verificat cu Node.js 22 și CPython 3.12. Codul JavaScript trece de ESLint, iar codul Python e formatat cu black.
+
+### Gândit pentru recapitulare
+
+Fiecare linie se încheie cu întrebări de interviu și răspunsuri scurte pe care le poți spune cu voce tare. Poți trimite un link direct către o linie cu `#node`, `#memory`, `#gil`, `#js-types` sau `#py-types`.
+
+
+---
+
+---
+title: "Event loop-ul Node.js explicat pas cu pas | Runtime lines"
+description: "Cum jonglează un singur thread cu mii de sarcini: stiva de apeluri (call stack), cozile nextTick și de promise-uri, timerele, fazele libuv și thread pool-ul."
+url: https://superintelligence.ro/ro/node
+alternate_en: https://superintelligence.ro/node.md
+alternate_ro: https://superintelligence.ro/ro/node.md
+---
+
+# Event loop-ul Node.js, stație cu stație
+
+Alege un scenariu de pe linia de mai jos, apoi apasă Pornește sau avansează pas cu pas cu săgețile. Fiecare callback călătorește din codul tău prin cozile Node până pe stiva de apeluri (call stack), așa că vezi exact de ce output-ul apare în ordinea aceea.
+
+## Regulile din spatele fiecărei rulări
+
+Fiecare scenariu de mai sus respectă aceleași cinci reguli, în această ordine.
+
+- **Rulează scriptul până la capăt:** Codul sincron se termină întotdeauna primul. Nimic nu îl întrerupe: nici timerele, nici I/O-ul.
+- **Golește microtask-urile:** Toate callback-urile `process.nextTick`, apoi toate callback-urile de promise-uri. Repetă până când ambele cozi sunt goale.
+- **Parcurge bucla:** timers, pending callbacks, idle/prepare, poll, check, close callbacks. Fiecare fază rulează callback-urile care așteaptă în coada ei.
+- **Golește microtask-urile după fiecare callback:** Începând cu Node 11, un promise sau un nextTick creat într-un callback rulează înainte de următorul callback din aceeași fază.
+- **Așteaptă sau ieși:** Faza poll blochează cât timp mai există I/O în curs. Când nu mai rămân timere, handle-uri sau cereri, procesul se încheie.
+
+**Modulele ES sunt diferite.** Într-un fișier `.mjs` sau cu `"type": "module"`, codul de la nivelul superior rulează deja într-un job de promise, așa că callback-urile de promise-uri rulează înainte de `nextTick`. Acolo, exemplul clasic afișează **A E C D B**.
+
+## Unde își trimite fiecare API callback-ul
+
+Folosește asta ca pe o hartă a traseelor când citești cod async necunoscut: găsești API-ul și știi în ce coadă așteaptă callback-ul lui.
+
+## Întrebări de interviu: event loop-ul Node.js
+
+Răspunsuri scurte pe care le poți spune cu voce tare. Încearcă să răspunzi singur la fiecare întrebare înainte s-o deschizi.
+
+### Node rulează pe un singur thread. Cum gestionează mii de conexiuni?
+
+JavaScript-ul tău rulează pe un singur thread, dar așteptarea nu. Node predă I/O-ul de rețea sistemului de operare (epoll, kqueue, IOCP) și operațiile pe sistemul de fișiere thread pool-ului din libuv, apoi rulează callback-ul tău pe thread-ul principal când rezultatul e gata. Thread-ul principal nu așteaptă niciodată; doar rulează callback-uri.
+
+### Ce este, de fapt, event loop-ul?
+
+O buclă din libuv care trece ciclic prin faze: timers, pending callbacks, poll (I/O), check (`setImmediate`) și close callbacks. Fiecare fază are o coadă, iar fiecare callback rulează până la capăt pe stiva de apeluri înainte să înceapă următorul.
+
+### În ce ordine rulează codul sincron, `process.nextTick`, promise-urile și timerele?
+
+Mai întâi codul sincron. Apoi toată coada `nextTick`, apoi toată coada de microtask-uri a promise-urilor. Abia după aceea bucla trece la callback-urile `setTimeout` din faza timers și la `setImmediate` din faza check. Ambele cozi de microtask-uri sunt golite din nou după fiecare callback în parte.
+
+### De ce rulează promise-urile înaintea lui `process.nextTick` într-un modul ES?
+
+Node pornește un modul ES din interiorul unui job de promise, așa că, atunci când codul de la nivelul superior se termină, V8 încă golește coada de microtask-uri și rulează callback-urile de promise-uri pe care le-ai pus în coadă înainte ca Node să ajungă la coada `nextTick`. În CommonJS, coada `nextTick` vine prima. Exemplele de pe această linie sunt CommonJS: rulează scenariul 1 ca fișier `.mjs` și C și D își schimbă locurile.
+
+### `setTimeout(fn, 0)` sau `setImmediate(fn)`: care rulează primul?
+
+Din modulul principal nu e garantat; depinde de cât de repede pornește bucla. Într-un callback de I/O, `setImmediate` câștigă întotdeauna, pentru că faza check vine imediat după faza poll.
+
+### Ce face thread pool-ul din libuv și cât de mare e?
+
+Rulează munca pentru care sistemul de operare nu are un API neblocant: majoritatea apelurilor `fs`, `dns.lookup` și funcțiile `crypto` și `zlib` care consumă mult CPU. Are implicit 4 thread-uri, număr setat prin `UV_THREADPOOL_SIZE`. Socket-urile de rețea nu îl folosesc.
+
+### Ce blochează event loop-ul și cum repari asta?
+
+Orice muncă sincronă de durată: un `JSON.parse` uriaș, apeluri sincrone `fs` sau `crypto`, bucle grele, un regex cu backtracking catastrofal. Cât timp rulează, nicio cerere, niciun timer și niciun promise nu pot avansa. Împarte munca în bucăți, procesează datele ca stream sau mut-o în `worker_threads`.
+
+### De ce timerul meu de 10 ms s-a declanșat după 100 ms?
+
+Întârzierea unui timer e un minim, nu o garanție. Callback-ul rulează în prima fază timers de după expirarea întârzierii, așa că un callback lung dinaintea lui îl întârzie, exact ca în scenariul `loop done at 100 ms` de pe această linie.
+
+### Poate `process.nextTick` să blocheze event loop-ul (starvation)?
+
+Da. Coada `nextTick` e golită complet înainte ca bucla să continue, așa că un callback care programează mereu un alt `nextTick` oprește tot I/O-ul. `setImmediate`, în schimb, lasă loc I/O-ului.
+
+### Când ai folosi `worker_threads` și când `cluster`?
+
+`worker_threads` rulează JavaScript în paralel în același proces și pot partaja memorie prin `SharedArrayBuffer`; folosește-le pentru sarcini care consumă mult CPU. `cluster`, sau mai multe procese în spatele unui load balancer, rulează procese Node separate, astfel încât un server să poată folosi toate nucleele.
+
+### Care e diferența dintre microtask-uri și macrotask-uri?
+
+Macrotask-urile sunt callback-urile pe care bucla le preia fază cu fază: timere, callback-uri de I/O, `setImmediate`, evenimente close. Microtask-urile sunt reacțiile promise-urilor și callback-urile `queueMicrotask`, plus coada proprie a Node, `nextTick`. După fiecare callback de macrotask, Node golește complet ambele cozi de microtask-uri înainte să-l ruleze pe următorul.
+
+### Prin ce diferă `queueMicrotask` de `process.nextTick`?
+
+`queueMicrotask` pune un callback în coada de microtask-uri a V8, aceeași coadă pe care o folosesc callback-urile de promise-uri. `process.nextTick` folosește o coadă separată a Node care, în CommonJS, rulează înaintea ei. Preferă `queueMicrotask`: funcționează la fel în browsere și în Node și nu poate trece înaintea promise-urilor pe care le-ai pus deja în coadă.
+
+### Ce se întâmplă în faza poll?
+
+Bucla cere sistemului de operare operațiile de I/O terminate și rulează callback-urile lor. Dacă nu are nimic de rulat, așteaptă acolo I/O nou, dar doar până când vine rândul celui mai apropiat timer. Dacă există un `setImmediate` în coadă, nu așteaptă deloc și trece direct la faza check.
+
+### Cum se mapează `async`/`await` pe event loop?
+
+O funcție `async` rulează sincron până la primul `await`. Acolo îi returnează apelantului un promise în așteptare (pending), iar restul funcției e reluat mai târziu ca microtask, după ce valoarea așteptată e finalizată (settled). Nimic nu rulează în paralel: `await` doar îți împarte funcția în callback-uri.
+
+### Ce se întâmplă cu un promise respins și netratat sau cu o excepție neprinsă?
+
+Începând cu Node 15, o respingere netratată emite `unhandledRejection`, iar dacă nimic nu o tratează, e aruncată ca excepție neprinsă și procesul se încheie cu eroare. Într-un handler `uncaughtException`, loghează și ieși: procesul e într-o stare necunoscută, așa că lasă un supervisor să-l repornească în loc să continui.
+
+### Evită `fs.promises` thread pool-ul?
+
+Nu. Variantele cu promise, cu callback și sincronă ale `fs` fac aceeași muncă; cele asincrone o rulează pe thread pool-ul din libuv și diferă doar prin felul în care primești rezultatul. I/O-ul de rețea, inclusiv `fetch` și `http`, e partea care merge direct la sistemul de operare, fără pool.
+
+### De ce poate un DNS lent să încetinească citirea fișierelor?
+
+`dns.lookup`, pe care `http` și `net` îl folosesc implicit, apelează `getaddrinfo` pe thread pool. Cu doar 4 thread-uri, câteva lookup-uri lente pot ocupa tot pool-ul, iar operațiile `fs`, `crypto` și `zlib` se adună la coadă în spatele lor. Mărește `UV_THREADPOOL_SIZE`, pune lookup-urile în cache sau folosește `dns.resolve`, care interoghează direct rețeaua.
+
+### Ce sunt stream-urile și de ce le folosești?
+
+Stream-urile mută datele în bucăți (chunk-uri) în loc să le încarce pe toate odată, așa că un fișier de 10 GB folosește la fel de multă memorie ca unul de 10 KB, iar procesarea începe de la prima bucată. Există patru tipuri: Readable, Writable, Duplex (ambele, ca un socket) și Transform (un Duplex care modifică datele, ca gzip).
+
+### Ce este backpressure?
+
+E ce se întâmplă când producătorul e mai rapid decât consumatorul. `write()` returnează `false` când bufferul intern depășește `highWaterMark`, iar tu ar trebui să te oprești din scris până la `'drain'`. Dacă ignori semnalul, bufferul crește până când procesul rămâne fără memorie. `pipe()` și `pipeline()` se ocupă de asta în locul tău.
+
+### De ce să folosești `stream.pipeline` în loc de `.pipe()`?
+
+`.pipe()` nu propagă erorile: dacă un stream eșuează, celelalte rămân deschise, iar descriptorii de fișiere sau socket-urile nu mai sunt eliberați (leak). `pipeline()` distruge toate stream-urile când oricare dintre ele eșuează și îți dă un singur callback, sau un singur promise din `stream/promises`, pentru succes sau eroare.
+
+### Este `emitter.emit()` asincron?
+
+Nu. `emit()` apelează sincron fiecare listener, în ordinea în care au fost adăugați, pe stiva de apeluri curentă, și revine doar după ce toți au terminat. Un listener lent blochează emitterul. Iar un eveniment `'error'` fără listener aruncă o excepție.
+
+### Cum îți dai seama că event loop-ul e blocat?
+
+Măsoară întârzierea: `perf_hooks.monitorEventLoopDelay()` îți dă o histogramă a întârzierilor buclei, iar `performance.eventLoopUtilization()` arată cât de ocupată e. Ca să găsești cauza, fă un profil CPU cu `--cpu-prof` sau cu inspectorul și caută frame-uri sincrone lungi în flame graph.
+
+### De ce să preferi un `setTimeout` recursiv în locul lui `setInterval` pentru polling?
+
+`setInterval` se declanșează după program, indiferent dacă rularea asincronă anterioară s-a terminat, așa că cererile lente se suprapun și se adună. Dacă programezi următorul `setTimeout` la finalul fiecărei rulări, garantezi o pauză între rulări, iar back-off-ul devine ușor de implementat.
+
+### Cum își partajează datele worker thread-urile?
+
+Fiecare worker are propriul isolate V8 și propriul event loop, deci implicit nu se partajează nimic. `postMessage` copiază datele cu algoritmul structured clone; dacă treci un `ArrayBuffer` în lista de obiecte transferabile, el este mutat în loc să fie copiat. Doar un `SharedArrayBuffer` este partajat cu adevărat, iar accesul la el îl coordonezi cu `Atomics`.
+
+### `spawn`, `exec`, `execFile` sau `fork`?
+
+`spawn` pornește un program și îi transmite ieșirea ca stream. `exec` rulează o comandă printr-un shell și ține ieșirea într-un buffer, așa că e expus la shell injection și limitat de `maxBuffer`. `execFile` este `exec` fără shell. `fork` pornește un alt proces Node cu un canal IPC pentru `send()` și `'message'`.
+
+### Cum oprești controlat un server Node (graceful shutdown)?
+
+La `SIGTERM`, apelează `server.close()` ca să nu mai accepți conexiuni noi și să lași cererile în curs să se termine; închide conexiunile keep-alive inactive (`closeIdleConnections()`); apoi închide pool-urile de conexiuni la baza de date și cozile, și ieși. Adaugă un timeout strict, ca o cerere blocată să nu poată ține procesul în viață la nesfârșit.
+
+### La ce folosește `AsyncLocalStorage`?
+
+Transportă context, cum ar fi ID-ul cererii sau utilizatorul curent, prin fiecare callback și `await` care decurge dintr-o cerere, fără să-l transmiți ca argument. Este echivalentul async al thread-local storage și așa etichetează loggerele și instrumentele de tracing tot ce se face pentru o cerere.
+
+### Cum anulezi o operație asincronă?
+
+Cu un `AbortController`. Transmiți proprietatea lui `signal` către `fetch`, `fs.readFile`, versiunile cu promise ale timerelor, `events.once` sau propriile tale funcții, apoi apelezi `abort()`. `AbortSignal.timeout(ms)` îți dă un semnal care se declanșează singur.
+
+### De ce nu se termină scriptul meu Node?
+
+Event loop-ul rulează cât timp ceva încă îl ține deschis: un timer, un socket sau un server deschis, un pool de conexiuni la baza de date, un proces copil. Închide ce ai deschis. Pentru un handle care n-ar trebui să țină singur procesul în viață, cum ar fi un interval de fundal, apelează `.unref()`.
+
+### `Promise.all` rulează operațiile în paralel?
+
+Nu rulează nimic: operațiile au pornit când ai creat promise-urile, iar `Promise.all` doar le așteaptă. Așteptarea e concurentă, iar promise-ul returnat e respins imediat ce unul dintre ele e respins, fără să le anuleze pe celelalte. Folosește `allSettled` ca să obții toate rezultatele, `any` pentru primul succes, `race` pentru primul care se finalizează și un limitator precum `p-limit` când ai mii de task-uri.
+
+Ieșirile au fost verificate cu Node.js 22, rulând fișiere CommonJS. Începând cu libuv 1.45 (Node 20 și ulterior), pasul timerelor rulează tehnic la sfârșitul fiecărei iterații, după callback-urile de închidere (close); ordinea fazelor prezentată aici rămâne aceeași.
+
+
+---
+
+---
+title: "Gestionarea memoriei în Python explicată: referințe, GC, pymalloc | Runtime lines"
+description: "Nume, obiecte și numărul de referințe, cum eliberează colectorul de cicluri ce nu poate elibera numărarea referințelor și de ce pymalloc păstrează memoria după ce ștergi lucruri."
+url: https://superintelligence.ro/ro/memory
+alternate_en: https://superintelligence.ro/memory.md
+alternate_ro: https://superintelligence.ro/ro/memory.md
+---
+
+# Memoria în Python, desenată ca o hartă
+
+În stânga sunt numele, în dreapta obiectele din heap, iar fiecare săgeată este o referință. Parcurge pas cu pas patru programe scurte ca să vezi când sunt obiectele partajate, numărate și eliberate, apoi joacă-te cu alocatorul care le stochează.
+
+## Unde stau de fapt obiectele mici
+
+CPython nu cere memorie de la sistemul de operare de fiecare dată când creezi un obiect. Obiectele de cel mult 512 octeți vin din **pymalloc**: **arene** mari împărțite în **pool-uri**, iar fiecare pool oferă blocuri de dimensiune fixă pentru o singură clasă de dimensiune (multipli de 16 octeți). Alocă și eliberează câteva obiecte și urmărește ce se întâmplă cu arenele.
+
+Redus la scară pentru ecran: un pool real conține sute de blocuri, iar o arenă reală conține multe pool-uri. Dimensiunile sunt date de `sys.getsizeof()` pe CPython 3.12 pe 64 de biți, rotunjite în sus la următoarea clasă de dimensiune (multiplu de 16 octeți).
+
+## De reținut
+
+**Numele sunt referințe**Atribuirea, transmiterea argumentelor și `return` copiază referințe, niciodată obiecte. Modificările unui obiect se văd prin toate numele lui.
+**Numărarea eliberează majoritatea obiectelor**Când numărul de referințe al unui obiect ajunge la 0, obiectul e eliberat pe loc, determinist. `del` doar șterge un nume.
+**GC-ul e pentru cicluri**Obiectele care se referă unele la altele își țin numărul de referințe peste 0. Colectorul de cicluri le găsește și le eliberează.
+**Eliberat nu înseamnă returnat**Blocurile eliberate se întorc la pymalloc, nu la sistemul de operare. O arenă e eliberată doar când toate pool-urile din ea sunt goale.
+
+## Întrebări de interviu: memoria în Python
+
+Răspunsuri scurte pe care le poți spune cu voce tare. Încearcă să răspunzi singur la fiecare întrebare înainte s-o deschizi.
+
+### Ce se întâmplă în memorie la `a = [1, 2]` urmat de `b = a`?
+
+Se creează un singur obiect listă în heap, iar ambele nume se referă la el. Atribuirea nu copiază niciodată: leagă un nume de un obiect, iar numărul de referințe al listei ajunge la 2.
+
+### Python transmite argumentele prin valoare sau prin referință?
+
+Niciuna. Transmite prin valoare referințe la obiecte, ceea ce se numește adesea call by sharing. O funcție poate modifica un obiect pe care i-l dai și vei vedea schimbarea, dar dacă funcția leagă parametrul de alt obiect, variabila ta nu e afectată.
+
+### Cum eliberează CPython memoria?
+
+În principal prin numărarea referințelor: când numărul de referințe al unui obiect scade la zero, obiectul e eliberat imediat. Un garbage collector generațional pentru cicluri găsește grupuri de obiecte care se referă doar unele la altele, pe care numărarea referințelor singură nu le poate elibera niciodată.
+
+### Care e diferența dintre `is` și `==`?
+
+`is` verifică identitatea: sunt acestea același obiect? `==` verifică egalitatea prin `__eq__`. Folosește `is` pentru singleton-uri precum `None` și `==` pentru tot restul.
+
+### De ce poate fi `x is y` True pentru două numere întregi mici egale, dar nu și pentru cele mari?
+
+CPython păstrează în cache întregii de la -5 la 256, așa că aceștia sunt mereu aceleași obiecte. Dacă alte numere sau șiruri egale împart același obiect depinde de interning și de constant folding, un detaliu de implementare pe care nu trebuie să te bazezi niciodată.
+
+### `del x` eliberează obiectul?
+
+Nu direct. `del` șterge un nume (sau un element dintr-un container) și decrementează numărul de referințe. Obiectul e eliberat doar când numărul ajunge la zero, sau mai târziu de garbage collector, dacă face parte dintr-un ciclu.
+
+### De ce nu scade memoria procesului după ce șterg o listă mare?
+
+Obiectele mici vin din pymalloc, care ia memorie de la sistemul de operare în arene mari și poate returna o arenă doar când fiecare bloc din ea e liber. Câteva obiecte supraviețuitoare țin în viață arene întregi, cum arată demo-ul pymalloc de pe această linie. Python refolosește memoria respectivă; doar că n-o dă înapoi.
+
+### Cum depistezi o scurgere de memorie (memory leak) în Python?
+
+Caută referințe care trăiesc prea mult: cache-uri la nivel de modul, un `functools.lru_cache` nelimitat, closure-uri și callback-uri care captează obiecte mari, și variabile globale. `tracemalloc` arată ce linii au alocat memoria care rămâne ocupată, iar `gc.get_referrers()` arată cine ține referințe la un obiect.
+
+### Când ai folosi `weakref`?
+
+Pentru cache-uri și referințe înapoi (back-references) care n-ar trebui să țină un obiect în viață. O referință slabă nu crește numărul de referințe, așa că obiectul poate fi totuși eliberat, după care referința slabă returnează `None`.
+
+### Ce este numărul de referințe și cum îl vezi?
+
+Fiecare obiect CPython are un contor al referințelor care indică spre el: nume, sloturi de listă, valori din dict, atribute. Legarea unui nume adaugă una, renunțarea la el scade una, iar la zero obiectul e eliberat imediat. `sys.getrefcount(x)` îl arată, cu unu mai mare decât te-ai aștepta, pentru că apelul însuși deține o referință.
+
+### Ce sunt obiectele imortale?
+
+Începând cu Python 3.12 (PEP 683), obiecte precum `None`, `True`, `False`, întregii mici și multe șiruri internate au un număr de referințe fix, care nu se schimbă niciodată, și nu sunt eliberate niciodată. Fără acele scrieri în contor se economisește muncă, paginile de memorie rămân partajate după `fork`, iar partajarea lor între thread-uri și interpretoare devine sigură.
+
+### De ce are nevoie Python de un garbage collector dacă are numărarea referințelor?
+
+Numărarea referințelor nu poate elibera ciclurile. Dacă o listă se conține pe ea însăși sau două obiecte indică unul spre celălalt, numărul lor de referințe nu ajunge niciodată la zero, chiar dacă nimic altceva nu le mai poate accesa. Colectorul de cicluri găsește astfel de grupuri scăzând referințele pe care și le țin unul altuia și le eliberează pe cele care rămân fără referințe din exterior.
+
+### Ce sunt generațiile GC?
+
+Colectorul sortează obiectele container după vârstă. Obiectele noi încep în generația cea mai tânără, scanată des pentru că majoritatea obiectelor mor tinere; supraviețuitorii sunt promovați în generații mai vechi, scanate din ce în ce mai rar. Pragurile din `gc.get_threshold()` decid când rulează fiecare.
+
+### Ar trebui să apelezi `gc.collect()` sau `gc.disable()`?
+
+Rareori. Numărarea referințelor eliberează aproape totul, iar colectorul rulează deja singur. Dezactivarea lui e sigură doar dacă codul tău nu creează niciodată cicluri; altfel, ele rămân în memorie (leak). Singura ajustare frecventă este `gc.freeze()` înainte de fork-ul workerilor, ca colectorul să nu atingă (și astfel să nu copieze) paginile partajate de procesele copil.
+
+### Ce este `__del__` și de ce trebuie folosit cu grijă?
+
+Este un finalizator care rulează când un obiect e pe cale să fie eliberat. Momentul depinde de numărul de referințe, de cicluri și de implementarea Python, așa că nu e un loc bun pentru închiderea fișierelor sau a conexiunilor, iar excepțiile ridicate în el sunt doar afișate. Folosește în schimb un context manager (`with`) sau `weakref.finalize`.
+
+### Ce este pymalloc?
+
+Alocatorul CPython pentru obiecte mici, de cel mult 512 octeți. Ia arene mari de la sistemul de operare, le împarte în pool-uri, iar fiecare pool oferă blocuri dintr-o singură clasă de dimensiune. Astfel, crearea și eliberarea obiectelor mici nu costă aproape nimic, pentru că majoritatea cererilor nu ajung niciodată la alocatorul sistemului.
+
+### De ce dă `sys.getsizeof` dimensiunea greșită pentru o listă?
+
+Măsoară doar obiectul în sine. Pentru o listă, asta înseamnă antetul plus array-ul de pointeri, nu obiectele spre care indică aceștia. O listă de o mie de șiruri raportează câțiva kilobytes, oricât de lungi ar fi șirurile. Ca să măsori toată structura, parcurge-o sau compară snapshot-uri `tracemalloc` înainte și după.
+
+### Ce face `__slots__` pentru memorie?
+
+Înlocuiește dicționarul `__dict__` al fiecărei instanțe cu sloturi fixe chiar în obiect. Fiecare instanță devine mai mică, iar accesul la atribute puțin mai rapid, ceea ce contează când creezi milioane de instanțe. Costul: nu poți adăuga atribute care nu sunt listate și ai nevoie de un slot `__weakref__` pentru referințe slabe.
+
+### Ce este internarea șirurilor (string interning)?
+
+Păstrarea unei singure copii pentru șirurile egale. CPython internează automat identificatorii și multe literale scurte, iar pe altele le poți interna cu `sys.intern()`, ceea ce economisește memorie și accelerează căutările în dict pe chei repetate. E o optimizare, nu o regulă, așa că compară întotdeauna șirurile cu `==`, niciodată cu `is`.
+
+### De ce folosesc workerii creați cu fork tot mai multă memorie în timp, chiar dacă doar citesc date?
+
+După `fork`, părintele și copilul partajează paginile de memorie până când unul dintre ei scrie într-o pagină. În CPython, simpla citire a unui obiect îi modifică numărul de referințe, ceea ce e o scriere, așa că paginile partajate sunt copiate una câte una. Obiectele imortale și `gc.freeze()` reduc acest efect.
+
+### Cum e stocată o listă și de ce e rapid `append`?
+
+O listă este un array redimensionabil de pointeri către obiecte stocate în altă parte. Când e plină, CPython alocă un array mai mare, cu spațiu de rezervă, așa că majoritatea operațiilor append doar ocupă un slot liber, iar copierea ocazională se amortizează: O(1) amortizat. Inserarea sau ștergerea la început este O(n), pentru că toți pointerii de după se mută.
+
+### De ce ocupă atât de multă memorie o listă de un milion de int-uri?
+
+Fiecare element este un pointer (8 octeți) către un obiect int complet (28 de octeți sau mai mult), cu propriul antet. `array.array('q')` sau un array NumPy stochează în schimb valorile brute de 8 octeți una lângă alta, de câteva ori mai compact și mult mai rapid de parcurs în C.
+
+### Cum economisesc memorie generatoarele?
+
+Un generator produce valorile pe rând și păstrează între ele doar frame-ul său suspendat. `sum(x * x for x in range(10**8))` are nevoie de memorie constantă, în timp ce varianta cu list comprehension construiește mai întâi o listă de o sută de milioane de int-uri. Capcana: un generator poate fi consumat o singură dată.
+
+### Ce este un `memoryview`?
+
+O vedere asupra memoriei altui obiect care suportă buffer protocol, cum ar fi `bytes`, `bytearray` sau `array`. Un slice dintr-un `memoryview` nu copiază datele, așa că parsarea bucată cu bucată a unui buffer binar mare rămâne rapidă și nu folosește memorie suplimentară.
+
+### Cum poate un closure să țină în viață un obiect mare?
+
+O funcție imbricată păstrează într-o celulă (cell) fiecare variabilă pe care o folosește din scope-ul exterior. Cât timp funcția există, de exemplu stocată ca callback, acele obiecte nu pot fi eliberate, chiar dacă aveai nevoie doar de o valoare mică dintr-unul uriaș. Extrage ce-ți trebuie înainte să definești funcția.
+
+### Cum poate o excepție să producă o scurgere de memorie?
+
+Un traceback are referințe la fiecare frame prin care a trecut, iar fiecare frame are referințe la variabilele sale locale. Dacă stochezi o excepție, de exemplu într-o listă de erori, toate acele variabile locale rămân în viață. De aceea Python șterge numele după `except E as e:`; stochează `str(e)` dacă ai nevoie doar de mesaj.
+
+### Ce face `functools.lru_cache` cu memoria?
+
+Păstrează o referință la fiecare argument și rezultat pe care îl stochează. Cu `maxsize=None` sau `@cache`, crește la nesfârșit. Pe o metodă stochează și `self`, ceea ce ține în viață fiecare instanță. Dă-i o dimensiune limitată și pune în cache funcții, nu metode.
+
+### Ce returnează `id()`?
+
+Un întreg unic pentru un obiect cât timp acesta trăiește. În CPython este adresa din memorie. După ce un obiect e eliberat, un obiect nou poate primi aceeași adresă, așa că două obiecte diferite, create unul după altul, pot raporta același `id`.
+
+### Cum funcționează numărarea referințelor în Python free-threaded?
+
+Fără GIL, actualizările contorului din thread-uri diferite ar produce un race condition (condiție de cursă). Build-urile free-threaded folosesc **biased reference counting**: thread-ul care deține un obiect actualizează un contor local fără operații atomice, iar celelalte thread-uri actualizează atomic un contor partajat. Unele obiecte folosesc numărare amânată (deferred), iar memoria vine din mimalloc în loc de pymalloc.
+
+Numărul de referințe de pe hartă include doar referințele create de program. `sys.getrefcount()` raportează cu una în plus (propriul argument), iar obiectele imortale raportează o valoare fixă uriașă.
+
+
+---
+
+---
+title: "GIL-ul din Python explicat: thread-uri, procese, free-threading | Runtime lines"
+description: "Patru thread-uri și un singur lock pe o cronologie live: muncă limitată de CPU versus muncă limitată de I/O, Python free-threaded, procese și un race condition (condiție de cursă) pe care îl poți parcurge pas cu pas."
+url: https://superintelligence.ro/ro/gil
+alternate_en: https://superintelligence.ro/gil.md
+alternate_ro: https://superintelligence.ro/ro/gil.md
+---
+
+# GIL-ul din Python, pe o axă a timpului
+
+Patru thread-uri, un singur Global Interpreter Lock. Alege o sarcină și un build Python, pornește simularea și urmărește cine ține lock-ul, ce fac nucleele CPU și cât durează toată treaba.
+
+## GIL-ul nu îți face codul thread-safe
+
+GIL-ul garantează că rulează o singură instrucțiune bytecode odată, nu că pașii tăi de citire, modificare și scriere rămân împreună. Parcurge pas cu pas două depuneri în același sold, cu și fără lock.
+
+## Ce unealtă pentru ce treabă
+
+### Așteptare după I/O
+
+Apeluri de rețea, disc, baze de date, subprocese. GIL-ul e eliberat cât timp un thread așteaptă, așa că thread-urile se suprapun bine.
+threading, asyncio
+
+### Python pur, intensiv pe CPU
+
+Bucle peste obiecte Python. Un singur GIL înseamnă un singur nucleu, așa că folosește procese separate sau un build free-threaded (`python3.14t`) cu cod thread-safe.
+multiprocessing, ProcessPoolExecutor
+
+### NumPy și extensii C
+
+Multe extensii eliberează GIL-ul în timpul calculelor grele (NumPy, hashlib, zlib), așa că thread-urile obișnuite pot folosi mai multe nuclee.
+thread-uri care apelează cod C
+
+### Stare mutabilă partajată
+
+Cu sau fără GIL, o citire urmată de o scriere se pot intercala. Protejează starea sau trimite mesaje în loc s-o partajezi.
+Lock, queue.Queue
+
+**Python free-threaded.** CPython 3.13 a adăugat un build experimental fără GIL, iar în 3.14 a devenit suportat oficial (PEP 779). Verifici cu `sys._is_gil_enabled()`; setarea `PYTHON_GIL=1` repornește lock-ul, iar importul unei extensii care nu e marcată ca sigură pentru acest mod reactivează automat GIL-ul.
+
+## Întrebări de interviu: GIL-ul și concurența
+
+Răspunsuri scurte pe care le poți spune cu voce tare. Încearcă să răspunzi singur la fiecare întrebare înainte s-o deschizi.
+
+### Ce este GIL-ul?
+
+Global Interpreter Lock este un mutex din CPython care lasă un singur thread să ruleze bytecode Python la un moment dat, în cadrul unui interpretor. Astfel, componentele interne ale interpretorului, cum ar fi numărul de referințe, rămân sigure fără lock-uri granulare.
+
+### Atunci de ce să mai folosești thread-uri în Python?
+
+Pentru că un thread eliberează GIL-ul cât timp așteaptă: I/O blocant pe socketuri și fișiere, precum și `time.sleep`, lasă alte thread-uri să ruleze. Multe extensii C, cum ar fi NumPy și `hashlib` pe date de intrare mari, îl eliberează și în timpul calculelor grele.
+
+### Cum accelerezi cod Python limitat de CPU (CPU-bound)?
+
+Folosește procese (`multiprocessing` sau `concurrent.futures.ProcessPoolExecutor`), ca fiecare worker să aibă propriul interpretor și propriul GIL, mută bucla critică în cod nativ care eliberează GIL-ul sau rulează pe build-ul free-threaded.
+
+### Face GIL-ul codul meu thread-safe?
+
+Nu. Thread-urile pot comuta între oricare două instrucțiuni bytecode, așa că `count += 1` (citire, adunare, scriere) se poate intercala și pierde actualizări; e exact race condition-ul (condiția de cursă) pe care îl poți parcurge pas cu pas pe această linie. Protejează starea partajată cu `threading.Lock` sau transmite datele între thread-uri prin `queue.Queue`.
+
+### Cât de des comută thread-urile?
+
+Un thread care așteaptă GIL-ul îl cere după intervalul de comutare, implicit 5 ms (`sys.getswitchinterval()`), iar thread-ul care îl deține îl eliberează la următorul punct sigur. Un thread care începe o operație I/O blocantă îl eliberează imediat.
+
+### Ce este Python free-threaded?
+
+Un build CPython separat, fără GIL (PEP 703), adăugat experimental în 3.13 ca `python3.13t` și suportat oficial din 3.14 (PEP 779). Thread-urile pot rula atunci cod Python pe mai multe nuclee simultan, cu un cost la viteza pe un singur thread. `sys._is_gil_enabled()` îți spune în ce mod ești.
+
+### asyncio, thread-uri sau procese: cum alegi?
+
+asyncio pentru multe task-uri I/O concurente, cu biblioteci async, pe un singur thread. Thread-uri pentru I/O cu biblioteci blocante sau pentru câteva task-uri în fundal. Procese pentru Python pur limitat de CPU, plătind timpul de pornire și serializarea (pickling) datelor între ele.
+
+### Ce este efectul de convoi?
+
+Un thread limitat de CPU ține GIL-ul câte un interval de comutare întreg, așa că thread-urile de I/O, care au nevoie de el doar o clipă după fiecare citire, stau la coadă în spatele lui. Latența lor crește, deși volumul total de lucru aproape nu se schimbă, cum arată sarcina mixtă de pe această linie.
+
+### GIL-ul face parte din limbajul Python?
+
+Nu, face parte din CPython, implementarea de referință. Jython și IronPython n-au avut niciodată GIL, PyPy are propriul GIL, iar din 3.13 CPython are un build free-threaded opțional, fără el. Limbajul spune doar ce înseamnă programul tău, nu cum sunt planificate thread-urile.
+
+### De ce are CPython un GIL?
+
+E o metodă simplă de a proteja componentele interne ale interpretorului: numărul de referințe, alocatorul și obiectele built-in pot fi actualizate fără un lock propriu. Asta păstrează rapid codul single-threaded și face extensiile C ușor de scris, cu prețul că un singur thread rulează bytecode Python la un moment dat.
+
+### Când este eliberat GIL-ul?
+
+În timpul I/O blocant (socketuri, fișiere, `time.sleep`) și în codul C care alege să-l elibereze, cum ar fi multe operații NumPy, `hashlib` pe date mari și `zlib`. Cât execută bytecode Python, thread-ul curent cedează GIL-ul și atunci când alt thread l-a așteptat un interval de comutare, implicit 5 ms.
+
+### De ce a fost GIL-ul atât de greu de eliminat?
+
+Fără el, fiecare modificare a numărului de referințe ar necesita o operație atomică sau un lock, ceea ce a încetinit codul single-threaded în încercările anterioare, iar multe extensii C se bazau tacit pe GIL pentru siguranță. PEP 703 a rezolvat asta cu biased reference counting, lock-uri per obiect și obiecte nemuritoare (immortal objects), și vine ca build opțional.
+
+### Este `counter += 1` atomic?
+
+Nu. Se compilează în mai mulți pași: citește valoarea, adună unu, o scrie înapoi, iar o comutare de thread între citire și scriere pierde o actualizare. Operațiile simple pe tipurile built-in, cum ar fi `list.append`, se întâmplă să fie atomice în CPython, dar nu te baza pe asta; protejează starea partajată cu un `Lock`.
+
+### `Lock` sau `RLock`?
+
+Un `Lock` intră în deadlock dacă thread-ul care îl deține încearcă să-l obțină din nou. Un `RLock` (lock reentrant) lasă thread-ul proprietar să-l obțină de mai multe ori și se eliberează după tot atâtea eliberări. Folosește `RLock` când o metodă care ține lock-ul apelează altă metodă cu lock a aceluiași obiect.
+
+### Cum eviți deadlock-urile?
+
+Obține lock-urile mereu în aceeași ordine globală, ține-le cât mai puțin, folosește `with` ca să fie eliberate întotdeauna și nu apela niciodată cod necunoscut, cum ar fi callback-uri, cât timp ții un lock. Un timeout la `acquire` transformă un blocaj tăcut într-o eroare vizibilă.
+
+### Cum își transmit thread-urile date în siguranță?
+
+Prin `queue.Queue`. Își gestionează singură lock-urile, blochează consumatorii până sosesc elemente și producătorii când e plină, și transformă starea partajată în mesaje. Pentru semnalizare, folosește `threading.Event`; ca să limitezi câte thread-uri folosesc o resursă, `Semaphore`.
+
+### `ThreadPoolExecutor` sau `ProcessPoolExecutor`?
+
+Au în comun API-ul `concurrent.futures`, deci alegerea ține de tipul de lucru. Thread-uri pentru task-uri limitate de I/O: pornesc ieftin și partajează memoria. Procese pentru task-uri limitate de CPU: ocolesc GIL-ul, dar funcția și argumentele ei trebuie să poată fi serializate cu pickle, iar fiecare apel plătește trimiterea datelor către alt proces.
+
+### Ce costă `multiprocessing`?
+
+Pornirea proceselor, serializarea cu pickle a fiecărui argument și rezultat ca să treacă dintr-un proces în altul, plus o copie separată a interpretorului și a datelor în fiecare proces. Modul de pornire depinde de platformă: `spawn` pe Windows și macOS, `forkserver` pe Linux din 3.14 (înainte, `fork`).
+
+### De ce e periculos să faci fork unui proces care are thread-uri?
+
+Procesul copil primește o copie a memoriei, dar doar thread-ul care a apelat `fork`. Un lock ținut în acel moment de orice alt thread rămâne blocat pentru totdeauna în copil, așa că acesta se poate bloca la primul apel de logging sau la prima alocare. Python 3.12 și versiunile ulterioare avertizează despre asta; preferă `spawn` sau `forkserver`.
+
+### Cum partajezi date între procese?
+
+Trimite mesaje printr-un `multiprocessing.Queue` sau `Pipe`; datele sunt serializate cu pickle și copiate. Pentru array-uri mari, folosește `multiprocessing.shared_memory`, care dă fiecărui proces aceiași octeți, fără copiere. Un `Manager` partajează obiecte Python printr-un proces server, ceea ce e comod, dar lent.
+
+### Rulează asyncio cod în paralel?
+
+Nu. Rulează un singur thread, iar task-urile își dau rândul la fiecare `await`. Așa gestionează ieftin mii de conexiuni care așteaptă, dar un singur apel blocant, cum ar fi `time.sleep` sau `requests.get`, îngheață toate task-urile. Mută lucrul blocant în afara event loop-ului cu `asyncio.to_thread` sau `run_in_executor`.
+
+### Care e diferența dintre concurență și paralelism?
+
+Concurența înseamnă să te ocupi de mai multe lucruri deodată: task-urile avansează pe rând. Paralelismul înseamnă să faci mai multe lucruri deodată: task-urile rulează în același moment pe nuclee diferite. Thread-urile sub GIL și asyncio îți dau concurență; procesele și Python free-threaded îți dau paralelism.
+
+### Pot thread-urile să accelereze cod NumPy?
+
+Adesea, da. NumPy eliberează GIL-ul în multe operații pe array-uri mari, așa că mai multe thread-uri le pot rula pe nuclee diferite. Liniile Python dintre aceste apeluri tot își așteaptă rândul, așa că câștigul depinde de cât din timp se petrece în NumPy.
+
+### Ce sunt subinterpretoarele?
+
+Mai multe interpretoare Python izolate în același proces. Din 3.12 fiecare poate avea propriul GIL (PEP 684), iar 3.14 adaugă modulul `concurrent.interpreters` și `InterpreterPoolExecutor`. Obții paralelism cu overhead mai mic decât la procese, dar obiectele nu sunt partajate; datele se transmit între interpretoare.
+
+### Cum verifici dacă GIL-ul este activ?
+
+Apelează `sys._is_gil_enabled()` (3.13 sau mai nou). Un build free-threaded, de obicei numit `python3.13t` sau `python3.14t`, rulează fără el, dar reactivează GIL-ul când importă o extensie C care nu e marcată ca sigură, dacă nu îl forțezi să rămână oprit cu `PYTHON_GIL=0` sau `-X gil=0`.
+
+### Python free-threaded îmi face codul thread-safe?
+
+Nu. Obiectele built-in își pun intern lock-uri, deci o listă nu se va corupe, dar `counter += 1` și codul de tip check-then-act (verifici, apoi acționezi) au race condition exact ca înainte, doar mai des, pentru că acum thread-urile rulează cu adevărat simultan. Tot ai nevoie de lock-uri, iar codul single-threaded rulează ceva mai lent în acest build.
+
+### `threading.local` sau `contextvars`?
+
+`threading.local()` dă fiecărui thread propria copie a unor atribute, cum ar fi o conexiune la baza de date. `contextvars` face același lucru pentru task-urile asyncio, care împart un singur thread, și funcționează și cu thread-uri. Pentru date legate de un request în cod async, folosește `contextvars`.
+
+### Cum oprești un thread care rulează?
+
+Nu îl poți omorî din afară. Dă-i un `threading.Event` și pune-l să verifice regulat evenimentul și să iasă. Un thread daemon (`daemon=True`) nu împiedică interpretorul să se închidă, dar e omorât fără curățenie, așa că fișierele deschise și tranzacțiile pot rămâne la jumătate.
+
+Simulatorul este un model simplificat al GIL-ului din CPython: un thread care așteaptă cere o comutare după un interval (implicit 5 ms), thread-ul care îl deține eliberează lock-ul, iar cei care așteaptă sunt serviți în ordinea sosirii. Rulările reale adaugă zgomot de la sistemul de operare, așa că formele sunt corecte, iar cifrele sunt orientative. Rulările free-threaded adaugă un overhead de 7% per thread; pornirea unui proces apare ca 10 ms.
+
+
+---
+
+---
+title: "Tipurile din JavaScript explicate: typeof, ==, copii, float-uri | Runtime lines"
+description: "Macazul typeof, cum stochează V8 fiecare tip, copii versus referințe, algoritmul exact al lui ==, valorile truthy și falsy și cei 64 de biți dintr-un număr."
+url: https://superintelligence.ro/ro/js-types
+alternate_en: https://superintelligence.ro/js-types.md
+alternate_ro: https://superintelligence.ro/ro/js-types.md
+---
+
+# Tipurile JavaScript, sortate la macaz
+
+Orice valoare JavaScript aparține unuia dintre cele șapte tipuri primitive sau este un obiect. Trimite valori prin macazul `typeof`, întoarce cardurile ca să vezi cum le stochează V8, urmărește exact ce face `==` și descompune un număr bit cu bit.
+
+## Șapte tipuri primitive și un tip obiect
+
+Primitivele sunt imutabile și se compară după valoare; obiectele sunt mutabile și se compară după referință. Întoarce un card ca să vezi cum reprezintă V8 acel tip.
+
+**Stivă sau heap?** Vei citi des că primitivele stau pe stivă, iar obiectele pe heap. În V8 aproape totul stă pe heap, iar o variabilă ține un pointer către valoare; doar întregii mici (Smi) încap direct în slot. Ce deosebește cu adevărat primitivele e că nu pot fi modificate, așa că partajarea uneia nu se observă.
+
+## Copie sau partajare?
+
+Atribuirea unei primitive o copiază. Atribuirea unui obiect copiază o referință. Spread-ul copiază un singur nivel; `structuredClone` copiază toate nivelurile.
+
+## Ce face de fapt ==
+
+`===` nu convertește niciodată. `==` urmează pas cu pas o listă fixă de reguli de conversie din specificație. Alege două valori și urmărește pașii sau dă click pe orice pătrat din grilă.
+
+## Truthy sau falsy?
+
+Un `if` își convertește condiția cu `Boolean()`. Exact opt valori sunt falsy; toate celelalte, inclusiv câteva surprinzătoare, sunt truthy. Alege o valoare, apoi coșul în care crezi că îi e locul.
+
+## În interiorul unui număr
+
+Un `number` JavaScript este un double IEEE 754: 1 bit de semn, 11 biți de exponent și 52 de biți de fracție. Scrie o valoare, alege una predefinită sau inversează orice bit și urmărește cum se schimbă numărul.
+
+## Întrebări de interviu: tipurile JavaScript
+
+Răspunsuri scurte pe care le poți spune cu voce tare. Încearcă să răspunzi singur la fiecare întrebare înainte s-o deschizi.
+
+### Ce tipuri are JavaScript?
+
+Șapte primitive (`undefined`, `null`, `boolean`, `number`, `bigint`, `string` și `symbol`), plus obiecte. Array-urile, funcțiile, datele calendaristice, map-urile și instanțele de clasă sunt toate obiecte.
+
+### Ce poate returna `typeof`?
+
+Opt șiruri: "undefined", "boolean", "number", "bigint", "string", "symbol", "object" și "function". `typeof null` este "object" din cauza unui bug istoric, așa că verifică null cu `=== null`, iar array-urile cu `Array.isArray()`.
+
+### `==` sau `===`?
+
+Folosește implicit `===`, care nu convertește niciodată tipurile. `==` aplică reguli de conversie: `null` și `undefined` sunt egale doar între ele, valorile booleene devin numere, un șir comparat cu un număr devine număr, iar obiectele sunt convertite în primitive. Singura utilizare uzuală a lui `==` este `x == null`, care verifică dacă valoarea e null sau undefined.
+
+### JavaScript transmite argumentele prin referință?
+
+Nu. Totul se transmite prin valoare, dar valoarea unei variabile de tip obiect este o referință. O funcție poate modifica obiectul pe care i-l dai, dar reatribuirea parametrului nu îți schimbă variabila. În Python e la fel.
+
+### Copie superficială sau copie profundă?
+
+Spread-ul, `Object.assign` și `slice()` copiază un singur nivel, așa că obiectele imbricate rămân partajate. `structuredClone` face o copie profundă, inclusiv pentru `Map`, `Set`, `Date` și referințe circulare, dar aruncă o excepție la funcții, iar instanțele de clasă devin obiecte simple.
+
+### De ce `0.1 + 0.2 !== 0.3` dă true?
+
+Numerele sunt double-uri IEEE 754 pe 64 de biți, iar 0.1, 0.2 și 0.3 nu au o reprezentare binară exactă, așa că fiecare e stocat ca cel mai apropiat double, iar erorile de rotunjire nu se anulează reciproc. Compară cu o toleranță sau ține sumele de bani ca întregi, în cenți.
+
+### Ce valori sunt falsy?
+
+`false`, `0`, `-0`, `0n`, `""`, `null`, `undefined` și `NaN` (plus vechiul `document.all` din browsere). Orice altceva e truthy, inclusiv `"0"`, `"false"`, `[]` și `{}`.
+
+### Ce este `Number.MAX_SAFE_INTEGER` și de ce contează?
+
+253 − 1. Peste această valoare, nu orice întreg poate fi reprezentat, așa că un ID pe 64 de biți dintr-o bază de date se poate schimba pe tăcute când e parsat ca număr. Păstrează astfel de ID-uri ca șiruri sau ca `BigInt`.
+
+### `null` sau `undefined`?
+
+`undefined` înseamnă că o valoare n-a fost setată niciodată: o proprietate lipsă, o variabilă neatribuită, o funcție fără return. `null` este un „fără valoare” explicit, pe care îl atribui tu. JSON are `null`, dar nu are `undefined`, iar `JSON.stringify` omite proprietățile a căror valoare este `undefined`.
+
+### De ce `typeof null` este `"object"`?
+
+Un bug din primul motor JavaScript: valorile aveau o etichetă de tip, obiectele aveau eticheta 0, iar `null` era pointerul null, care se citea tot ca 0. Dacă s-ar schimba acum, s-ar strica web-ul, așa că rămâne așa. Verifică null cu `x === null`.
+
+### Cum verifici sigur că o valoare este un array?
+
+`Array.isArray(x)`. `typeof` returnează `"object"`, iar `instanceof Array` eșuează pentru array-uri din alt realm, cum ar fi un iframe sau un context `vm`, pentru că fiecare realm are propriul constructor `Array`.
+
+### Ce este `NaN` și cum îl testezi?
+
+Valoarea IEEE 754 pentru un rezultat nedefinit, cum ar fi `0 / 0` sau `Number("abc")`. Tipul lui este `number` și nu este egal cu nimic, nici măcar cu el însuși, așa că `x === NaN` e mereu false. Folosește `Number.isNaN(x)`; funcția globală `isNaN` convertește mai întâi, așa că `isNaN("abc")` este true.
+
+### Prin ce diferă `Object.is` de `===`?
+
+Exact în două cazuri: `Object.is(NaN, NaN)` este true, iar `Object.is(0, -0)` este false. În rest se comportă ca `===`. React îl folosește ca să decidă dacă state-ul s-a schimbat, iar `Map`, `Set` și `includes` folosesc o variantă care consideră `0` și `-0` egale.
+
+### Cum poate o primitivă precum `"abc"` să aibă metode?
+
+Când scrii `"abc".toUpperCase()`, motorul folosește un wrapper `String` temporar ca să găsească metoda în `String.prototype`; primitiva în sine nu se schimbă. Nu crea niciodată wrappere de mână cu `new String` sau `new Boolean`: `new Boolean(false)` este un obiect, deci e truthy.
+
+### Cum transformă JavaScript un obiect într-o primitivă?
+
+Apelează `obj[Symbol.toPrimitive](hint)`, dacă există. Altfel, încearcă `valueOf()` și apoi `toString()` pentru un hint numeric, și invers pentru un hint de tip șir. De aceea `[] + {}` dă `"[object Object]"`: `[]` devine `""`, `{}` devine `"[object Object]"`, iar `+` concatenează șirurile.
+
+### Ce este `BigInt` și când îl folosești?
+
+Un tip întreg de orice mărime, scris `123n`, pentru care `typeof` dă `"bigint"`. Folosește-l pentru ID-uri, sume de bani în subunități sau orice depășește 253. Nu îl poți amesteca cu numere în operații aritmetice (`1n + 1` aruncă un `TypeError`), nu are zecimale, iar `JSON.stringify` aruncă o excepție când îl întâlnește.
+
+### La ce folosește un `Symbol`?
+
+E o valoare unică, folosită mai ales ca cheie de proprietate care nu se poate ciocni cu nicio altă cheie, nici măcar cu una cu aceeași descriere. `for...in`, `Object.keys` și `JSON.stringify` ignoră cheile de tip symbol. Cele predefinite, ca `Symbol.iterator`, îți permit să conectezi obiectele la facilități ale limbajului, cum ar fi `for...of`.
+
+### `const` face un obiect imutabil?
+
+Nu. `const` te împiedică doar să reasociezi numele; obiectul spre care arată se poate schimba în continuare. `Object.freeze` blochează modificările proprietăților proprii ale obiectului, dar e superficial: obiectele imbricate rămân mutabile dacă nu le îngheți și pe ele.
+
+### `structuredClone` sau `JSON.parse(JSON.stringify(x))`?
+
+Preferă `structuredClone`: copiază `Date`, `Map`, `Set`, typed arrays și referințe circulare. Drumul dus-întors prin JSON pierde `undefined` și funcțiile, transformă datele calendaristice în șiruri și `NaN` în `null`, și aruncă o excepție la cicluri și la `BigInt`. Niciuna dintre variante nu copiază funcții și nu păstrează prototipurile claselor.
+
+### Ce este un Smi?
+
+Un întreg mic pe care V8 îl stochează chiar în pointer, marcat prin bitul cel mai puțin semnificativ, așa că nu necesită alocare. Numerele care nu încap, cum ar fi fracțiile, `-0` sau întregii mari, devin HeapNumber: un float pe 64 de biți într-un obiect separat pe heap. De aceea codul care lucrează mult cu întregi e adesea mai rapid.
+
+### Ce sunt clasele ascunse (hidden classes) și de ce contează ordinea proprietăților?
+
+V8 dă fiecărui obiect o clasă ascunsă, sau shape, care reține proprietățile lui și locul în care sunt stocate. Obiectele construite cu aceleași proprietăți, în aceeași ordine, au același shape, așa că accesul la proprietăți poate fi pus în cache și devine foarte rapid. Adăugarea proprietăților în ordini diferite sau folosirea lui `delete` creează shape-uri noi și încetinește acel cod.
+
+### Ce sunt array-urile packed și holey?
+
+V8 ține evidența a ce conține un array: doar întregi mici, doar double-uri sau orice, și dacă are goluri. Array-urile packed de întregi mici sunt cele mai rapide. Tranzițiile merg într-un singur sens: după `arr.push(1.5)` sau un gol ca `arr[100] = 1`, acel array nu mai redevine niciodată rapid. `new Array(n)` pornește ca holey.
+
+### De ce are JavaScript `-0`?
+
+Float-urile IEEE 754 păstrează un bit de semn chiar și pentru zero. `0 === -0` este true, dar `1 / -0` este `-Infinity`, iar `Object.is(0, -0)` este false. Apare când o valoare negativă mică e rotunjită la zero și îți poate spune din ce direcție s-a apropiat o valoare de zero.
+
+### Cum lucrezi cu bani fără erori de float?
+
+Stochează întregi în subunități, cum ar fi cenții, cu `BigInt` dacă pot deveni mari, sau folosește o bibliotecă de numere zecimale, și formatează cu `Intl.NumberFormat`. `toFixed` nu rezolvă problema: rotunjește valoarea binară, așa că `(1.005).toFixed(2)` dă `"1.00"`, pentru că 1.005 este de fapt 1.00499999...
+
+### `parseInt` sau `Number`?
+
+`parseInt` citește cifre până dă de altceva, așa că `parseInt("12px")` dă 12. `Number` convertește tot șirul sau returnează `NaN`, așa că `Number("12px")` dă `NaN`, dar `Number("")` dă 0. Dă-i mereu lui `parseInt` baza (radix) și nu-i da niciodată numere: `parseInt(0.0000005)` dă 5.
+
+### Când este acceptabil `==`?
+
+Pentru `x == null`, care e true doar pentru `null` și `undefined`, așa că le prinde pe amândouă dintr-o singură verificare. Multe ghiduri de stil permit exact acest caz și folosesc `===` în rest.
+
+### Care e diferența dintre `??` și `||`?
+
+`a || b` recurge la `b` pentru orice valoare falsy, inclusiv `0`, `""` și `false`. `a ?? b` face asta doar pentru `null` și `undefined`. Pentru valori implicite ca `count ?? 10` ai nevoie de `??`, ca să păstrezi un 0 real.
+
+### `Map` sau un obiect simplu?
+
+Folosește un `Map` pentru dicționare cu chei dinamice: cheile pot fi orice valoare, inclusiv obiecte, are `size`, se iterează în ordinea inserării și nu are chei moștenite, ca `__proto__`, de care să-ți faci griji. Cheile unui obiect sunt mereu șiruri sau simboluri, iar cheile care arată ca întregi sunt listate primele, în ordine numerică. Folosește obiecte pentru înregistrări cu câmpuri fixe.
+
+### La ce folosește un `WeakMap`?
+
+Ca să atașezi date la obiecte care nu sunt ale tale, fără să le ții în viață. Cheile trebuie să fie obiecte, iar odată ce o cheie nu mai e accesibilă din altă parte, intrarea poate fi colectată de garbage collector. Pentru că intrările pot dispărea oricând, un `WeakMap` nu poate fi iterat și nu are `size`. Utilizări tipice: cache-uri și date private pentru fiecare nod DOM.
+
+Rezultatele typeof, conversiile și regulile truthy/falsy respectă specificația ECMAScript și coincid cu V8 din Node.js și Chrome. Exemplul de copiere afișează `10 20 Bob [ 'dev', 'ops' ] [ 'dev', 'ops', 'qa' ]` în Node.js 22.
+
+
+---
+
+---
+title: "Tipurile din Python explicate: dispatch-ul operatorilor, +=, hashing | Runtime lines"
+description: "Tipurile predefinite și unde să-l folosești pe fiecare, cum se face dispatch-ul pentru a + b, când += modifică obiectul pe loc și cum se calculează hash-ul cheilor dintr-un dict."
+url: https://superintelligence.ro/ro/py-types
+alternate_en: https://superintelligence.ro/py-types.md
+alternate_ro: https://superintelligence.ro/ro/py-types.md
+---
+
+# Tipurile din Python și cum se înțeleg între ele
+
+Totul în Python este un obiect, iar tipul lui decide ce fac operatorii cu el. Explorează rețeaua de tipuri, trimite doi operanzi prin mecanismul operatorilor, apoi urmărește cum `+=` și cheile de dict se comportă în moduri care îi surprind pe cei mai mulți.
+
+## Ce se întâmplă când scrii a + b
+
+Python îl întreabă mai întâi pe operandul din stânga. Dacă metoda lui returnează `NotImplemented`, vine rândul operandului din dreapta, cu metoda reflectată. Alege două valori și un operator; fiecare pas de mai jos a fost înregistrat pe obiecte CPython reale.
+
+## += modifică obiectul pe loc, sau nu
+
+`x += y` încearcă mai întâi `x.__iadd__(y)`. Tipurile mutabile îl implementează și modifică obiectul pe loc; cele imutabile nu, așa că Python recurge la `x = x + y` și reasociază numele.
+
+## Chei de dict și hashing
+
+Un dict își păstrează intrările în ordinea inserării, plus un mic tabel de indecși. `hash(key)` alege un slot, iar cheile egale trebuie să aibă hash-uri egale, și exact de aceea `1`, `True` și `1.0` ajung să fie o singură cheie.
+
+## Întrebări de interviu: tipurile Python
+
+Răspunsuri scurte pe care le poți spune cu voce tare. Încearcă să răspunzi singur la fiecare întrebare înainte s-o deschizi.
+
+### Ce tipuri predefinite sunt mutabile?
+
+`list`, `dict`, `set` și `bytearray`, plus majoritatea claselor pe care le scrii tu. `int`, `float`, `complex`, `bool`, `str`, `bytes`, `tuple`, `frozenset`, `range` și `None` sunt imutabile: orice „modificare” construiește un obiect nou.
+
+### Ce face un obiect hashable și de ce contează?
+
+Are nevoie de un `__hash__` care nu se schimbă niciodată pe durata vieții obiectului, iar obiectele egale trebuie să aibă același hash. Doar obiectele hashable pot fi chei de dict sau elemente de set, de aceea o listă nu poate fi cheie, dar un tuplu de elemente hashable poate.
+
+### De ce `1`, `True` și `1.0` ajung să fie o singură cheie de dict?
+
+Sunt egale la comparare și au același hash, așa că dict-ul le tratează ca pe o singură cheie. Se păstrează primul obiect-cheie și se înlocuiește doar valoarea, cum arată pas cu pas exemplul de hashing de pe această linie.
+
+### Ce se întâmplă când Python evaluează `a + b`?
+
+Apelează `a.__add__(b)`. Dacă acesta returnează `NotImplemented`, încearcă `b.__radd__(a)` și aruncă `TypeError` dacă amândouă renunță. Dacă tipul lui b este o subclasă a tipului lui a și suprascrie `__radd__`, b are prioritate.
+
+### `x += y` este același lucru cu `x = x + y`?
+
+Nu pentru tipurile mutabile. `+=` apelează mai întâi `__iadd__`, care extinde o listă pe loc, așa că toate numele legate de acea listă văd schimbarea. Tipurile imutabile recurg la `x = x + y` și reasociază doar x. Tot de aceea `pair[0] += [2]` pe un tuplu și modifică lista, și aruncă o excepție.
+
+### Ce problemă are `def f(items=[])`?
+
+Valorile implicite sunt evaluate o singură dată, la definirea funcției, așa că toate apelurile folosesc aceeași listă. Folosește `items=None` și creează o listă nouă în interiorul funcției.
+
+### De ce scrii `x is None` în loc de `x == None`?
+
+`None` este un singleton, așa că identitatea e testul precis. E și mai rapid și nu poate fi păcălit de o clasă al cărei `__eq__` răspunde da la orice.
+
+### list, tuple, set sau dict: cum alegi?
+
+O listă pentru o colecție ordonată pe care o modifici, un tuplu pentru o înregistrare fixă sau o cheie hashable, un set pentru unicitate și teste rapide de apartenență, iar un dict pentru căutare după cheie. Alege un `frozenset` când ai nevoie de un set hashable.
+
+### Cum copiezi o structură imbricată?
+
+`list(x)`, `x.copy()`, `x[:]` și `copy.copy()` fac copii superficiale: noul container conține aceleași obiecte interioare. `copy.deepcopy()` copiază totul recursiv.
+
+### Un tuplu e imutabil. De ce poate `t[0] += [1]` să arunce o eroare și totodată să modifice tuplul?
+
+`+=` apelează întâi `list.__iadd__`, care extinde pe loc lista din tuplu, apoi încearcă să stocheze rezultatul înapoi în `t[0]`, ceea ce aruncă `TypeError`. Sloturile tuplului nu se pot schimba, dar obiectele din ele da. Din același motiv, un tuplu care conține o listă nu e hashable.
+
+### Care e contractul dintre `__eq__` și `__hash__`?
+
+Obiectele egale trebuie să aibă hash-uri egale, iar hash-ul nu are voie să se schimbe cât timp obiectul se află într-un set sau dict. De aceea, când definești `__eq__`, `__hash__` devine `None`: Python face clasa non-hashable până când definești un hash bazat pe aceleași câmpuri. `@dataclass(frozen=True)` le face pe amândouă pentru tine.
+
+### Cum funcționează un dict pe dinăuntru?
+
+E o tabelă hash. Hash-ul cheii alege un slot dintr-un mic array de indecși, coliziunile se rezolvă prin sondarea altor sloturi (probing), iar indexul trimite într-un array compact de intrări păstrate în ordinea inserării. Căutările, inserările și ștergerile sunt O(1) în medie, iar o potrivire se confirmă cu `is` sau `==` pe cheie.
+
+### Dict-urile păstrează ordinea?
+
+Da, ordinea inserării e garantată din Python 3.7. `OrderedDict` rămâne util: are `move_to_end`, comparația de egalitate ține cont de ordine și e la îndemână pentru cache-uri LRU. Set-urile nu au deloc ordine.
+
+### Ce este duck typing?
+
+Pe Python îl interesează ce poate face un obiect, nu ce clasă are: orice are `__iter__` poate fi parcurs într-o buclă, orice are `read()` poate ține loc de fișier. De obicei, codul pur și simplu încearcă operația și tratează excepția (EAFP). Pentru type checkere, `typing.Protocol` descrie o astfel de formă fără moștenire.
+
+### `NotImplemented` sau `NotImplementedError`?
+
+`NotImplemented` este o valoare pe care o returnezi dintr-o metodă binară precum `__add__` sau `__eq__` ca să spui „nu cunosc acest tip”, iar Python încearcă atunci metoda celuilalt operand. `NotImplementedError` este o excepție pe care o arunci într-o metodă pe care subclasele trebuie s-o suprascrie. Dacă o arunci pe prima sau o returnezi pe a doua, ai un bug în ambele cazuri.
+
+### Când apelează Python `__radd__`?
+
+Pentru `a + b`, când `a` nu are `__add__` sau aceasta returnează `NotImplemented`, Python încearcă `b.__radd__(a)`. O excepție: dacă tipul lui `b` e o subclasă a tipului lui `a` și suprascrie `__radd__`, metoda lui e încercată prima, ca subclasele să poată prelua controlul. Așa funcționează `sum()` pe tipuri proprii, pornind de la `0`.
+
+### Sunt verificate type hint-urile la runtime?
+
+Nu. Python le ignoră când rulează codul; unelte precum mypy și pyright le verifică înainte de rulare. Sunt disponibile la runtime prin `typing.get_type_hints()` și `annotationlib`, iar așa validează datele biblioteci ca Pydantic și FastAPI. Din 3.14, adnotările sunt evaluate lazy, doar când le cere ceva.
+
+### Poate un int din Python să facă overflow?
+
+Nu, int-urile au precizie arbitrară și cresc cât e nevoie; `sys.maxsize` e dimensiunea maximă a unui container, nu cel mai mare int. Int-urile mari doar devin mai lente. Din 3.11, conversia unui int cu peste 4300 de cifre în sau din string aruncă implicit `ValueError`, ca să prevină atacurile de tip denial-of-service.
+
+### Ce fac `//` și `%` cu numerele negative?
+
+`//` rotunjește în jos, spre minus infinit, deci `-7 // 2` dă `-4`, iar `%` ia semnul împărțitorului: `-7 % 2` dă `1`. JavaScript, C și Java trunchiază în schimb spre zero. Și `int(-3.5)` trunchiază, dând `-3`.
+
+### De ce `round(2.5)` dă 2?
+
+Python rotunjește jumătățile la cel mai apropiat număr par (rotunjirea bancherului), deci `round(2.5)` dă 2, iar `round(3.5)` dă 4; asta evită o eroare sistematică atunci când aduni multe valori rotunjite. `round(2.675, 2)` dă `2.67`, pentru că 2.675 nu poate fi stocat exact. Pentru bani, folosește `decimal.Decimal`.
+
+### `str` sau `bytes`?
+
+`str` e text, o secvență de code point-uri Unicode. `bytes` sunt date brute pe 8 biți, din fișiere, socketuri sau hash-uri. Python 3 nu convertește niciodată implicit între ele: faci `encode()` din text în bytes și `decode()` din bytes în text la granițele programului, specificând encoding-ul, de obicei UTF-8.
+
+### De ce poate `len("é")` să fie 2?
+
+`len` numără code point-uri, nu ce vezi. „é” poate fi un singur code point (U+00E9) sau două: „e” plus un accent combinant. Normalizează cu `unicodedata.normalize("NFC", s)` înainte să compari sau să numeri. Intern, CPython stochează fiecare string cu 1, 2 sau 4 octeți pe caracter, în funcție de cel mai lat caracter din el.
+
+### De ce e lentă construirea unui string cu `+=` într-o buclă?
+
+String-urile sunt imutabile, așa că fiecare `+=` poate crea un string nou și copia tot ce s-a adunat până atunci, adică O(n²) în total. CPython extinde uneori pe loc, dar alte implementări nu, și nu te poți baza pe asta. Adună bucățile într-o listă și apelează o singură dată `"".join(parts)`, sau folosește `io.StringIO`.
+
+### `isinstance(x, T)` sau `type(x) is T`?
+
+`isinstance` acceptă subclase și clase de bază abstracte precum `collections.abc.Mapping`, ceea ce e aproape mereu ce vrei. Are o surpriză clasică: `bool` e subclasă a lui `int`, deci `isinstance(True, int)` e adevărat, iar `True + True` dă 2. Folosește `type(x) is T` doar când subclasele trebuie respinse.
+
+### Cât de rapid e `x in` pe o listă, un set și un dict?
+
+O listă verifică pe rând fiecare element: O(n). Set-urile și dict-urile calculează hash-ul lui `x` și se uită într-un singur slot: O(1) în medie. Să transformi o listă în set înainte să verifici mii de valori într-o buclă e una dintre cele mai simple optimizări cu câștig mare. Și `x in range(...)` e O(1): e doar aritmetică.
+
+### namedtuple, dataclass, TypedDict sau dict?
+
+`namedtuple`: un tuplu imutabil și ușor, cu nume de câmpuri. `dataclass`: o clasă obișnuită cu `__init__`, `__repr__` și `__eq__` generate, mutabilă sau frozen, cu valori implicite și metode. `TypedDict`: type hints pentru dict-uri care rămân dict-uri simple, cum ar fi payload-urile JSON. Un `dict` simplu: chei cu adevărat dinamice.
+
+### Este `sorted` stabil și de ce are nevoie?
+
+Da. Sortarea din Python e stabilă, deci elementele cu chei egale își păstrează ordinea și poți sorta după mai multe chei în mai multe treceri, începând cu cea mai puțin importantă. E O(n log n) și foarte rapidă pe date deja parțial sortate. Are nevoie doar de `<`; dacă amesteci tipuri care nu pot fi comparate, cum ar fi `None` și `int`, primești `TypeError`.
+
+### Cum decide Python dacă un obiect e truthy?
+
+Apelează `__bool__` dacă clasa îl definește, altfel `__len__`, iar orice altceva e considerat adevărat. Așadar `None`, `False`, zero din orice tip numeric și containerele goale sunt falsy. Atenție la `if not x:` când 0 sau o listă goală sunt valori valide; scrie în schimb `if x is None:`.
+
+### Care e diferența dintre un iterabil și un iterator?
+
+Un iterabil, cum e o listă, îți poate da un iterator nou cu `iter()`, de câte ori vrei. Un iterator își ține minte poziția, returnează următorul element din `__next__` și se consumă după o singură trecere. Generatoarele și obiectele fișier sunt iteratori, de aceea a doua parcurgere a unuia nu produce nimic.
+
+Secvențele de dispatch au fost înregistrate apelând fiecare metodă dunder pe obiecte reale în CPython 3.12. Hash-urile string-urilor se schimbă la fiecare rulare dacă nu e setat `PYTHONHASHSEED`, deci hash-ul afișat pentru `'1'` e doar o valoare posibilă.

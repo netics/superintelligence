@@ -1,0 +1,21 @@
+{
+  "name": "Runtime lines",
+  "short_name": "Runtime lines",
+  "description": "An interactive, visual reference for full-stack engineers preparing for interviews: the Node.js event loop, Python memory and the GIL, and the JavaScript and Python type systems, step by step, with interview questions for each.",
+  "start_url": "/",
+  "display": "browser",
+  "background_color": "#eef2f6",
+  "theme_color": "#eef2f6",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "type": "image/png",
+      "sizes": "180x180"
+    }
+  ]
+}

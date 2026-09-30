@@ -1,0 +1,99 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:xhtml="http://www.w3.org/1999/xhtml" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1">
+  <url>
+    <loc>https://superintelligence.ro/</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/"/>
+    <image:image><image:loc>https://superintelligence.ro/og/en/home.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/node</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/node"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/node"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/node"/>
+    <image:image><image:loc>https://superintelligence.ro/og/en/node.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/memory</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/memory"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/memory"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/memory"/>
+    <image:image><image:loc>https://superintelligence.ro/og/en/memory.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/gil</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/gil"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/gil"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/gil"/>
+    <image:image><image:loc>https://superintelligence.ro/og/en/gil.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/js-types</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/js-types"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/js-types"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/js-types"/>
+    <image:image><image:loc>https://superintelligence.ro/og/en/js-types.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/py-types</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/py-types"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/py-types"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/py-types"/>
+    <image:image><image:loc>https://superintelligence.ro/og/en/py-types.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/ro</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/"/>
+    <image:image><image:loc>https://superintelligence.ro/og/ro/home.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/ro/node</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/node"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/node"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/node"/>
+    <image:image><image:loc>https://superintelligence.ro/og/ro/node.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/ro/memory</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/memory"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/memory"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/memory"/>
+    <image:image><image:loc>https://superintelligence.ro/og/ro/memory.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/ro/gil</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/gil"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/gil"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/gil"/>
+    <image:image><image:loc>https://superintelligence.ro/og/ro/gil.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/ro/js-types</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/js-types"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/js-types"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/js-types"/>
+    <image:image><image:loc>https://superintelligence.ro/og/ro/js-types.png</image:loc></image:image>
+  </url>
+  <url>
+    <loc>https://superintelligence.ro/ro/py-types</loc>
+    <lastmod>2026-09-30</lastmod>
+    <xhtml:link rel="alternate" hreflang="en" href="https://superintelligence.ro/py-types"/>
+    <xhtml:link rel="alternate" hreflang="ro" href="https://superintelligence.ro/ro/py-types"/>
+    <xhtml:link rel="alternate" hreflang="x-default" href="https://superintelligence.ro/py-types"/>
+    <image:image><image:loc>https://superintelligence.ro/og/ro/py-types.png</image:loc></image:image>
+  </url>
+</urlset>

@@ -3,10 +3,12 @@
   "version": "1.0.0",
   "private": true,
   "description": "An interactive reference for full-stack engineers: how Node.js and Python actually run your code.",
+  "homepage": "https://superintelligence.ro",
   "author": "Sergiu Vlad <me@sergiuvlad.com> (https://sergiuvlad.com)",
   "license": "UNLICENSED",
   "scripts": {
     "site": "python3 scripts/build.py",
+    "images": "python3 scripts/make_images.py",
     "i18n": "python3 scripts/i18n.py extract",
     "i18n:check": "python3 scripts/i18n.py check",
     "dev": "python3 scripts/serve.py",

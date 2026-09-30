@@ -7,6 +7,7 @@ Usage: python3 tests/test_site.py   (needs: pip install playwright && playwright
 """
 
 import json
+import re
 import sys
 import threading
 from pathlib import Path
@@ -161,7 +162,7 @@ def explorers(page):
 
 
 def languages(p, url):
-    browser, page, errors = open_page(p, url + "#gil", 1440, 900)
+    browser, page, errors = open_page(p, url + "gil", 1440, 900)
     check(
         "english page is lang=en",
         page.evaluate("document.documentElement.lang") == "en",
@@ -170,8 +171,7 @@ def languages(p, url):
     page.wait_for_timeout(700)
     check(
         "switcher opens the same line in Romanian",
-        page.evaluate("location.pathname + location.hash") in ("/ro#gil", "/ro/#gil")
-        and page.is_visible("#v-gil"),
+        page.evaluate("location.pathname") == "/ro/gil" and page.is_visible("#v-gil"),
         page.url,
     )
     check(
@@ -199,7 +199,83 @@ def languages(p, url):
     browser.close()
 
 
-def shell(page):
+def urls(p, url):
+    for path, view, lang in (
+        ("gil", "gil", "en"),
+        ("ro/js-types", "js-types", "ro"),
+        ("ro", "home", "ro"),
+    ):
+        browser, page, errors = open_page(p, url + path, 1440, 900)
+        check(
+            f"/{path} opens its own page",
+            page.is_visible(f"#v-{view}")
+            and page.evaluate("document.documentElement.lang") == lang
+            and page.evaluate(
+                "document.querySelector('link[rel=canonical]').href"
+            ).endswith("/" + path),
+        )
+        check(f"no console errors on /{path}", not errors, errors[:3])
+        browser.close()
+    browser, page, errors = open_page(p, url + "#memory", 1440, 900)
+    check(
+        "old #hash links move to the line's URL",
+        page.evaluate("location.pathname") == "/memory"
+        and page.is_visible("#v-memory"),
+        page.url,
+    )
+    browser.close()
+
+
+def files():
+    public = ROOT / "public"
+    pages = [public / "index.html", public / "ro" / "index.html"]
+    pages += [
+        public / f"{k}.html" for k in ("node", "memory", "gil", "js-types", "py-types")
+    ]
+    pages += [
+        public / "ro" / f"{k}.html"
+        for k in ("node", "memory", "gil", "js-types", "py-types")
+    ]
+    bad = []
+    for f in pages:
+        html = f.read_text()
+        ld = re.search(
+            r'<script type="application/ld\+json">(.*?)</script>', html, re.S
+        )
+        og = re.search(
+            r'<meta property="og:image" content="https://[^/]+(/[^"]+)"', html
+        )
+        md = re.search(
+            r'<link rel="alternate" type="text/markdown" href="https://[^/]+(/[^"]+)"',
+            html,
+        )
+        ok = (
+            ld
+            and json.loads(ld.group(1).replace("<\\/", "</"))
+            and og
+            and (public / og.group(1).lstrip("/")).exists()
+            and md
+            and (public / md.group(1).lstrip("/")).exists()
+            and html.count('rel="alternate" hreflang=') == 3
+        )
+        if not ok:
+            bad.append(f.name)
+    check(
+        "every page has JSON-LD, hreflang, an OG image and a Markdown twin",
+        not bad,
+        bad,
+    )
+    for name in (
+        "llms.txt",
+        "llms-full.txt",
+        "ro/llms-full.txt",
+        "sitemap.xml",
+        "robots.txt",
+    ):
+        check(f"{name} exists", (public / name).stat().st_size > 200)
+
+
+def shell(page, base=""):
     check(
         "home is the default view",
         page.is_visible("#v-home") and not page.is_visible("#v-node"),
@@ -212,7 +288,9 @@ def shell(page):
         page.is_visible("#v-gil") and 0 <= top < 200,
         top,
     )
-    check("hash follows the view", page.evaluate("location.hash") == "#gil")
+    check(
+        "the URL follows the view", page.evaluate("location.pathname") == base + "/gil"
+    )
     page.click("#g-ref [data-qa='open']")
     opened = page.eval_on_selector_all("#g-ref details", "ds => ds.every(d => d.open)")
     check("open all interview answers", opened)
@@ -233,7 +311,7 @@ with make_server(8765) as httpd:
             print(f"-- {lang}")
             browser, page, errors = open_page(p, url + path, 1440, 900)
             check("page title", page.title().startswith("Runtime lines"))
-            shell(page)
+            shell(page, "" if lang == "en" else "/" + lang)
             explorers(page)
             check(
                 "no console errors or CSP violations (desktop)", not errors, errors[:3]
@@ -241,6 +319,9 @@ with make_server(8765) as httpd:
             browser.close()
         print("-- languages")
         languages(p, url)
+        print("-- urls and files")
+        urls(p, url)
+        files()
         print("-- mobile")
         browser, page, errors = open_page(p, url, 390, 844, reduced=False)
         page.click(".menu-btn")

@@ -1,0 +1,847 @@
+---
+title: "Runtime lines: how Node.js and Python actually run your code"
+description: "An interactive, visual reference for full-stack engineers preparing for interviews: the Node.js event loop, Python memory and the GIL, and the JavaScript and Python type systems, step by step, with interview questions for each."
+url: https://superintelligence.ro/
+alternate_en: https://superintelligence.ro/index.md
+alternate_ro: https://superintelligence.ro/ro/index.md
+---
+
+An interactive reference for full-stack interviews
+
+# How Node.js and Python actually run your code
+
+Five explorers, drawn as lines on a transit map. Step through real programs one line at a time and watch the call stack, the heap, the GIL and the type system move. Every output was checked against real Node.js and CPython, and every line ends with the interview questions it prepares you for.
+[Start with the event loop](https://superintelligence.ro/node)
+
+## NNode event loop
+
+How one thread juggles thousands of tasks: the call stack, the nextTick and promise queues, timers, the libuv phases and the thread pool.
+You’ll be ready for
+- Does a promise callback run before `setTimeout(fn, 0)`?
+- `setImmediate` or `setTimeout`: which fires first?
+- What blocks the event loop, and how do you fix it?
+[Open the line](https://superintelligence.ro/node) [Interview questions](https://superintelligence.ro/node#n-ref)
+
+## MPython memory
+
+Names, objects and reference counts, how the cycle collector frees what refcounting can’t, and why pymalloc keeps memory after you delete things.
+You’ll be ready for
+- Is Python pass-by-value or pass-by-reference?
+- What’s the difference between `is` and `==`?
+- Why doesn’t memory drop after `del`?
+[Open the line](https://superintelligence.ro/memory) [Interview questions](https://superintelligence.ro/memory#m-ref)
+
+## GThe GIL
+
+Four threads and one lock on a live timeline: CPU-bound versus I/O-bound work, free-threaded Python, processes, and a race condition you can step through.
+You’ll be ready for
+- Do threads make Python code faster?
+- Does the GIL make my code thread-safe?
+- Threads, processes or asyncio: how do you choose?
+[Open the line](https://superintelligence.ro/gil) [Interview questions](https://superintelligence.ro/gil#g-ref)
+
+## JJavaScript types
+
+The `typeof` junction, how V8 stores each type, copies versus references, the exact `==` algorithm, truthiness and the 64 bits inside a number.
+You’ll be ready for
+- Why is `[] == false` true?
+- Shallow copy or deep copy?
+- Why is `0.1 + 0.2 !== 0.3`?
+[Open the line](https://superintelligence.ro/js-types) [Interview questions](https://superintelligence.ro/js-types#j-ref)
+
+## PPython types
+
+The built-in types and where to use each one, how `a + b` is dispatched, when `+=` changes things in place, and how dict keys are hashed.
+You’ll be ready for
+- What makes an object hashable?
+- What happens when Python evaluates `a + b`?
+- What’s wrong with `def f(items=[])`?
+[Open the line](https://superintelligence.ro/py-types) [Interview questions](https://superintelligence.ro/py-types#p-ref)
+
+### Step through it
+
+**Play**, **Next** and **Back** move one line of code at a time. Use ← and → to step, Space to play, and pick a speed that suits you.
+
+### Outputs you can trust
+
+Every printed output was checked against Node.js 22 and CPython 3.12. The JavaScript passes ESLint and the Python is formatted with black.
+
+### Built for revision
+
+Each line ends with interview questions and short answers you can say out loud. Link straight to a line with `#node`, `#memory`, `#gil`, `#js-types` or `#py-types`.
+
+
+---
+
+---
+title: "The Node.js event loop explained, step by step | Runtime lines"
+description: "How one thread juggles thousands of tasks: the call stack, the nextTick and promise queues, timers, the libuv phases and the thread pool."
+url: https://superintelligence.ro/node
+alternate_en: https://superintelligence.ro/node.md
+alternate_ro: https://superintelligence.ro/ro/node.md
+---
+
+# The Node.js event loop, one stop at a time
+
+Pick a scenario on the line below, then press Play or step with the arrow keys. Every callback travels from your code through Node’s queues onto the call stack, so you can see exactly why the output lands in that order.
+
+## The rules behind every run
+
+Every scenario above follows the same five rules, in this order.
+
+- **Run the script to the end:** Synchronous code always finishes first. Nothing interrupts it: not timers, not I/O.
+- **Drain the microtasks:** All `process.nextTick` callbacks, then all promise callbacks. Repeat until both queues are empty.
+- **Go round the loop:** timers, pending callbacks, idle/prepare, poll, check, close callbacks. Each phase runs the callbacks waiting in its queue.
+- **Drain microtasks after every callback:** Since Node 11, a promise or nextTick created inside a callback runs before the next callback of the same phase.
+- **Wait, or exit:** Poll blocks while I/O is still pending. When no timers, handles or requests are left, the process exits.
+
+**ES modules are different.** In an `.mjs` file, or with `"type": "module"`, the top level already runs inside a promise job, so promise callbacks run before `nextTick`. The classic example prints **A E C D B** there.
+
+## Where each API sends its callback
+
+Use this as a route map when you read unfamiliar async code: find the API, and you know which queue its callback waits in.
+
+## Interview questions: the Node.js event loop
+
+Short answers you can say out loud. Try answering each question yourself before you open it.
+
+### Node is single-threaded. How does it handle thousands of connections?
+
+Your JavaScript runs on one thread, but the waiting doesn’t. Node hands network I/O to the operating system (epoll, kqueue, IOCP) and file-system work to libuv’s thread pool, then runs your callback on the main thread when the result is ready. The main thread never waits; it only runs callbacks.
+
+### What exactly is the event loop?
+
+A loop inside libuv that cycles through phases: timers, pending callbacks, poll (I/O), check (`setImmediate`) and close callbacks. Each phase has a queue, and each callback runs to completion on the call stack before the next one starts.
+
+### In what order do synchronous code, `process.nextTick`, promises and timers run?
+
+Synchronous code first. Then the whole `nextTick` queue, then the whole promise microtask queue. Only then does the loop move on to `setTimeout` callbacks in the timers phase and `setImmediate` in the check phase. Both microtask queues are drained again after every single callback.
+
+### Why do promises run before `process.nextTick` in an ES module?
+
+Node starts an ES module from inside a promise job, so when its top-level code finishes, V8 is still draining the microtask queue and runs the promise callbacks you queued before Node gets to the `nextTick` queue. In CommonJS the `nextTick` queue goes first. The examples on this line are CommonJS: run scenario 1 as an `.mjs` file and C and D swap places.
+
+### `setTimeout(fn, 0)` or `setImmediate(fn)`: which runs first?
+
+From the main module it isn’t guaranteed; it depends on how quickly the loop starts. Inside an I/O callback, `setImmediate` always wins, because the check phase comes straight after the poll phase.
+
+### What does the libuv thread pool do, and how big is it?
+
+It runs work that has no non-blocking OS API: most `fs` calls, `dns.lookup`, and CPU-heavy `crypto` and `zlib` functions. It has 4 threads by default, set by `UV_THREADPOOL_SIZE`. Network sockets don’t use it.
+
+### What blocks the event loop, and how do you fix it?
+
+Any long synchronous work: a huge `JSON.parse`, sync `fs` or `crypto` calls, heavy loops, a regex with catastrophic backtracking. While it runs, no request, timer or promise can move. Split the work into chunks, stream the data, or move it to `worker_threads`.
+
+### Why did my 10 ms timer fire after 100 ms?
+
+A timer’s delay is a minimum, not a promise. The callback runs in the first timers phase after the delay has passed, so a long callback ahead of it delays it, exactly like the `loop done at 100 ms` scenario on this line.
+
+### Can `process.nextTick` starve the event loop?
+
+Yes. The `nextTick` queue is drained completely before the loop continues, so a callback that keeps scheduling another `nextTick` stops all I/O. `setImmediate` yields to I/O instead.
+
+### When would you use `worker_threads`, and when `cluster`?
+
+`worker_threads` run JavaScript in parallel inside one process and can share memory with `SharedArrayBuffer`; use them for CPU-heavy tasks. `cluster`, or several processes behind a load balancer, runs separate Node processes so a server can use every core.
+
+### What is the difference between microtasks and macrotasks?
+
+Macrotasks are the callbacks the loop picks up phase by phase: timers, I/O callbacks, `setImmediate`, close events. Microtasks are promise reactions and `queueMicrotask` callbacks, plus Node’s own `nextTick` queue. After every single macrotask callback, Node drains both microtask queues completely before it runs the next one.
+
+### How is `queueMicrotask` different from `process.nextTick`?
+
+`queueMicrotask` puts a callback on V8’s microtask queue, the same queue promise callbacks use. `process.nextTick` uses a separate Node queue that, in CommonJS, runs before it. Prefer `queueMicrotask`: it works the same in browsers and Node, and it can’t jump ahead of promises you already queued.
+
+### What happens in the poll phase?
+
+The loop asks the OS for finished I/O and runs those callbacks. If there is nothing to run, it waits there for new I/O, but only until the nearest timer is due. If a `setImmediate` is queued, it doesn’t wait at all and moves straight on to the check phase.
+
+### How does `async`/`await` map onto the event loop?
+
+An `async` function runs synchronously up to its first `await`. There it returns a pending promise to its caller, and the rest of the function is resumed later as a microtask once the awaited value settles. Nothing runs in parallel: `await` just splits your function into callbacks.
+
+### What happens to an unhandled promise rejection or an uncaught exception?
+
+Since Node 15, an unhandled rejection emits `unhandledRejection`, and if nothing handles it, it is thrown as an uncaught exception and the process exits with an error. In an `uncaughtException` handler, log and exit: the process is in an unknown state, so let a supervisor restart it instead of carrying on.
+
+### Does `fs.promises` avoid the thread pool?
+
+No. The promise, callback and sync versions of `fs` do the same work; the async ones run it on libuv’s thread pool and only differ in how you get the result. Network I/O, including `fetch` and `http`, is the part that goes to the OS without the pool.
+
+### Why can slow DNS make file reads slow?
+
+`dns.lookup`, which `http` and `net` use by default, calls `getaddrinfo` on the thread pool. With only 4 threads, a few slow lookups can occupy the whole pool and `fs`, `crypto` and `zlib` work queues up behind them. Raise `UV_THREADPOOL_SIZE`, cache lookups, or use `dns.resolve`, which queries the network directly.
+
+### What are streams, and why use them?
+
+Streams move data in chunks instead of loading it all at once, so a 10 GB file uses the same memory as a 10 KB one, and processing starts with the first chunk. There are four kinds: Readable, Writable, Duplex (both, like a socket) and Transform (a Duplex that changes the data, like gzip).
+
+### What is backpressure?
+
+It is what happens when the producer is faster than the consumer. `write()` returns `false` once the internal buffer passes `highWaterMark`, and you should stop writing until `'drain'`. Ignore it and the buffer grows until the process runs out of memory. `pipe()` and `pipeline()` handle it for you.
+
+### Why use `stream.pipeline` instead of `.pipe()`?
+
+`.pipe()` doesn’t forward errors: if one stream fails, the others stay open and leak file descriptors or sockets. `pipeline()` destroys every stream when any of them fails and gives you one callback, or one promise from `stream/promises`, for success or error.
+
+### Is `emitter.emit()` asynchronous?
+
+No. `emit()` calls every listener synchronously, in the order they were added, on the current call stack, and returns only when all of them have finished. A slow listener blocks the emitter. And an `'error'` event with no listener throws.
+
+### How do you find out that the event loop is blocked?
+
+Measure the delay: `perf_hooks.monitorEventLoopDelay()` gives a histogram of how late the loop is, and `performance.eventLoopUtilization()` shows how busy it is. To find the cause, take a CPU profile with `--cpu-prof` or the inspector and look for long synchronous frames in the flame graph.
+
+### Why prefer a recursive `setTimeout` over `setInterval` for polling?
+
+`setInterval` fires on schedule whether or not the previous async run has finished, so slow requests overlap and pile up. Scheduling the next `setTimeout` at the end of each run guarantees a gap between runs and makes back-off easy.
+
+### How do worker threads share data?
+
+Each worker has its own V8 isolate and event loop, so nothing is shared by default. `postMessage` copies data with the structured clone algorithm; listing an `ArrayBuffer` as transferable moves it instead of copying. Only a `SharedArrayBuffer` is truly shared, and you coordinate access to it with `Atomics`.
+
+### `spawn`, `exec`, `execFile` or `fork`?
+
+`spawn` starts a program and streams its output. `exec` runs a command through a shell and buffers the output, so it’s open to shell injection and limited by `maxBuffer`. `execFile` is `exec` without the shell. `fork` starts another Node process with an IPC channel for `send()` and `'message'`.
+
+### How do you shut down a Node server gracefully?
+
+On `SIGTERM`, call `server.close()` to stop accepting connections and let in-flight requests finish; close idle keep-alive connections (`closeIdleConnections()`); then close database pools and queues, and exit. Add a hard timeout so a stuck request can’t hold the process forever.
+
+### What is `AsyncLocalStorage` for?
+
+It carries context, such as a request ID or the current user, through every callback and `await` that follows from a request, without passing it as an argument. It is the async equivalent of thread-local storage, and it is how loggers and tracing tools tag everything done for one request.
+
+### How do you cancel an async operation?
+
+With an `AbortController`. Pass its `signal` to `fetch`, `fs.readFile`, the promise versions of the timers, `events.once` or your own functions, then call `abort()`. `AbortSignal.timeout(ms)` gives you a signal that aborts on its own.
+
+### Why doesn’t my Node script exit?
+
+The loop keeps running while anything still holds it open: a timer, an open socket or server, a database pool, a child process. Close what you opened. For a handle that shouldn’t keep the process alive on its own, such as a background interval, call `.unref()`.
+
+### Does `Promise.all` run things in parallel?
+
+It runs nothing: the operations started when you created the promises, and `Promise.all` only waits for them. They wait concurrently, and it rejects as soon as one rejects, without cancelling the others. Use `allSettled` to get every result, `any` for the first success, `race` for the first to settle, and a limiter such as `p-limit` when you have thousands of tasks.
+
+Outputs verified with Node.js 22 running CommonJS files. Since libuv 1.45 (Node 20 and later), the timers step technically runs at the end of each iteration, after close callbacks; the order of phases shown here is the same.
+
+
+---
+
+---
+title: "Python memory management explained: references, GC, pymalloc | Runtime lines"
+description: "Names, objects and reference counts, how the cycle collector frees what refcounting can’t, and why pymalloc keeps memory after you delete things."
+url: https://superintelligence.ro/memory
+alternate_en: https://superintelligence.ro/memory.md
+alternate_ro: https://superintelligence.ro/ro/memory.md
+---
+
+# Python memory, drawn as a map
+
+Names on the left, objects on the heap to the right, and every arrow is a reference. Step through four short programs to see when objects are shared, counted, and freed, then play with the allocator that stores them.
+
+## Where small objects actually live
+
+CPython doesn’t ask the operating system for memory every time you create an object. Objects of 512 bytes or less come from **pymalloc**: big **arenas** split into **pools**, and each pool hands out fixed-size blocks for one size class (multiples of 16 bytes). Allocate and free some objects and watch what happens to the arenas.
+
+Scaled down for the screen: a real pool holds hundreds of blocks and a real arena holds many pools. Sizes are `sys.getsizeof()` on 64-bit CPython 3.12, rounded up to the next 16-byte size class.
+
+## What to remember
+
+**Names are references**Assignment, argument passing and `return` copy references, never objects. Mutations are visible through every name.
+**Counting frees most objects**When an object’s count reaches 0 it is freed on the spot, deterministically. `del` only removes a name.
+**The GC is for cycles**Objects that refer to each other keep their counts above 0. The cyclic collector finds and frees them.
+**Freed isn’t returned**Freed blocks go back to pymalloc, not the OS. An arena is only released when every pool in it is empty.
+
+## Interview questions: Python memory
+
+Short answers you can say out loud. Try answering each question yourself before you open it.
+
+### What happens in memory for `a = [1, 2]` followed by `b = a`?
+
+One list object is created on the heap and both names refer to it. Assignment never copies: it binds a name to an object, and the list’s reference count goes to 2.
+
+### Is Python pass-by-value or pass-by-reference?
+
+Neither. It passes references to objects by value, often called call by sharing. A function can mutate an object you pass in and you’ll see the change, but rebinding the parameter inside the function doesn’t touch your variable.
+
+### How does CPython free memory?
+
+Mainly by reference counting: when an object’s count drops to zero it’s freed immediately. A generational cyclic garbage collector finds groups of objects that only reference each other, which refcounting alone can never free.
+
+### What’s the difference between `is` and `==`?
+
+`is` checks identity: are these the same object? `==` checks equality through `__eq__`. Use `is` for singletons like `None`, and `==` for everything else.
+
+### Why can `x is y` be True for two equal small ints but not for big ones?
+
+CPython caches the integers from -5 to 256, so those are always the same objects. Whether other equal numbers or strings share an object depends on interning and constant folding, an implementation detail you should never rely on.
+
+### Does `del x` free the object?
+
+Not directly. `del` removes a name (or a container item) and decrements the reference count. The object is freed only when its count reaches zero, or later by the garbage collector if it’s part of a cycle.
+
+### Why doesn’t my process shrink after I delete a big list?
+
+Small objects come from pymalloc, which takes memory from the OS in large arenas and can only give an arena back when every block in it is free. A few surviving objects keep whole arenas alive, as the pymalloc demo on this line shows. Python reuses that memory; it just doesn’t hand it back.
+
+### How do you track down a memory leak in Python?
+
+Look for references that live too long: module-level caches, an unbounded `functools.lru_cache`, closures and callbacks that capture big objects, and globals. `tracemalloc` shows which lines allocated the memory that stays, and `gc.get_referrers()` shows who is holding an object.
+
+### When would you use `weakref`?
+
+For caches and back-references that shouldn’t keep an object alive. A weak reference doesn’t increase the reference count, so the object can still be freed, after which the weak reference returns `None`.
+
+### What is a reference count, and how do you see it?
+
+Every CPython object has a counter of how many references point at it: names, list slots, dict values, attributes. Binding a name adds one, dropping it subtracts one, and at zero the object is freed immediately. `sys.getrefcount(x)` shows it, one higher than you expect because the call itself holds a reference.
+
+### What are immortal objects?
+
+Since Python 3.12 (PEP 683), objects such as `None`, `True`, `False`, small ints and many interned strings have a fixed reference count that never changes and are never freed. Skipping those counter writes saves work, keeps memory pages shared after `fork`, and makes sharing them between threads and interpreters safe.
+
+### Why does Python need a garbage collector if it has reference counting?
+
+Reference counting can’t free cycles. If a list contains itself, or two objects point at each other, their counts never reach zero even when nothing else can reach them. The cycle collector finds such groups by subtracting the references they hold to each other and frees the ones left with no outside references.
+
+### What are GC generations?
+
+The collector sorts container objects by age. New objects start in the youngest generation, which is scanned often because most objects die young; survivors are promoted to older generations that are scanned less and less often. Thresholds from `gc.get_threshold()` decide when each one runs.
+
+### Should you call `gc.collect()` or `gc.disable()`?
+
+Rarely. Reference counting frees almost everything, and the collector already runs on its own. Disabling it is safe only if your code never creates cycles, otherwise those leak. The one common tuning is `gc.freeze()` before forking workers, so the collector doesn’t touch, and copy, pages the children share.
+
+### What is `__del__`, and why be careful with it?
+
+It’s a finalizer that runs when an object is about to be freed. When that happens depends on reference counts, cycles and the Python implementation, so it’s a bad place for closing files or connections, and exceptions raised in it are only printed. Use a context manager (`with`) or `weakref.finalize` instead.
+
+### What is pymalloc?
+
+CPython’s allocator for small objects, 512 bytes or less. It takes big arenas from the OS, splits them into pools, and each pool hands out blocks of one size class. Creating and freeing small objects then costs almost nothing, because most requests never reach the system allocator.
+
+### Why does `sys.getsizeof` give the wrong size for a list?
+
+It only measures the object itself. For a list that is the header plus the array of pointers, not the objects they point at. A list of a thousand strings reports a few kilobytes however long the strings are. To measure the whole structure, walk it, or compare `tracemalloc` snapshots before and after.
+
+### What does `__slots__` do for memory?
+
+It replaces the per-instance `__dict__` with fixed slots in the object itself. Each instance gets smaller and attribute access slightly faster, which matters when you create millions of them. The cost: you can’t add attributes that aren’t listed, and you need a `__weakref__` slot for weak references.
+
+### What is string interning?
+
+Keeping a single copy of equal strings. CPython interns identifiers and many short literals automatically, and you can intern others with `sys.intern()`, which saves memory and makes dict lookups on repeated keys faster. It’s an optimisation, not a rule, so always compare strings with `==`, never `is`.
+
+### Why do forked workers use more memory over time, even if they only read data?
+
+After `fork`, parent and child share memory pages until one of them writes to a page. In CPython, simply reading an object changes its reference count, which is a write, so shared pages are copied one by one. Immortal objects and `gc.freeze()` reduce this.
+
+### How is a list stored, and why is `append` fast?
+
+A list is a resizable array of pointers to objects stored elsewhere. When it’s full, CPython allocates a bigger array with spare room, so most appends just fill a free slot and the occasional copy averages out: amortised O(1). Inserting or deleting at the front is O(n), because every pointer after it moves.
+
+### Why does a list of a million ints use so much memory?
+
+Each element is a pointer (8 bytes) to a full int object (28 bytes or more) with its own header. `array.array('q')` or a NumPy array stores the raw 8-byte values next to each other instead, several times smaller and much faster to loop over in C.
+
+### How do generators save memory?
+
+A generator produces values one at a time and keeps only its paused frame between them. `sum(x * x for x in range(10**8))` needs constant memory, while the list comprehension version builds a list of a hundred million ints first. The catch: a generator can only be consumed once.
+
+### What is a `memoryview`?
+
+A view on the memory of another object that supports the buffer protocol, such as `bytes`, `bytearray` or `array`. Slicing a `memoryview` doesn’t copy, so parsing a large binary buffer piece by piece stays fast and uses no extra memory.
+
+### How can a closure keep a large object alive?
+
+A nested function keeps every variable it uses from the enclosing scope in a cell. As long as the function exists, for example stored as a callback, those objects can’t be freed, even if you only needed one small value from a huge one. Copy out what you need before defining the function.
+
+### How can an exception cause a memory leak?
+
+A traceback references every frame it passed through, and every frame references its local variables. Storing an exception, for example in a list of errors, keeps all of those locals alive. That’s why Python deletes the name after `except E as e:`; store `str(e)` if you only need the message.
+
+### What does `functools.lru_cache` do to memory?
+
+It keeps a reference to every argument and result it stores. With `maxsize=None`, or `@cache`, it grows forever. On a method it also stores `self`, which keeps every instance alive. Give it a bounded size, and cache functions rather than methods.
+
+### What does `id()` return?
+
+An integer that is unique to an object for as long as it’s alive. In CPython it’s the memory address. Once an object is freed, a new object can get the same address, so two different objects created one after the other can report the same `id`.
+
+### How does reference counting work in free-threaded Python?
+
+Without the GIL, counter updates from different threads would race. Free-threaded builds use **biased reference counting**: the thread that owns an object updates a local count without atomics, and other threads update a shared count atomically. Some objects use deferred counting, and memory comes from mimalloc instead of pymalloc.
+
+Counts on the map include only references created by the program. `sys.getrefcount()` reports one more (its own argument), and immortal objects report a huge fixed value.
+
+
+---
+
+---
+title: "Python's GIL explained: threads, processes, free-threading | Runtime lines"
+description: "Four threads and one lock on a live timeline: CPU-bound versus I/O-bound work, free-threaded Python, processes, and a race condition you can step through."
+url: https://superintelligence.ro/gil
+alternate_en: https://superintelligence.ro/gil.md
+alternate_ro: https://superintelligence.ro/ro/gil.md
+---
+
+# Python’s GIL, on a timeline
+
+Four threads, one Global Interpreter Lock. Pick a workload and a Python build, press Run, and watch who holds the lock, what the CPU cores are doing, and how long the whole job takes.
+
+## The GIL doesn’t make your code thread-safe
+
+The GIL guarantees that one bytecode instruction runs at a time, not that your read, modify and write steps stay together. Step through two deposits into one balance, with and without a lock.
+
+## Which tool for which job
+
+### Waiting on I/O
+
+Network calls, disk, databases, subprocesses. The GIL is released while a thread waits, so threads overlap well.
+threading, asyncio
+
+### CPU-heavy pure Python
+
+Loops over Python objects. One GIL means one core, so use separate processes, or a free-threaded build (`python3.14t`) with thread-safe code.
+multiprocessing, ProcessPoolExecutor
+
+### NumPy and C extensions
+
+Many extensions release the GIL during heavy work (NumPy, hashlib, zlib), so plain threads can use several cores.
+threads around C-level work
+
+### Shared mutable state
+
+With or without a GIL, a read followed by a write can interleave. Protect it, or pass messages instead of sharing.
+Lock, queue.Queue
+
+**Free-threaded Python.** CPython 3.13 added an experimental build without the GIL, and in 3.14 it became officially supported (PEP 779). Check with `sys._is_gil_enabled()`; setting `PYTHON_GIL=1` turns the lock back on, and importing an extension that isn’t marked safe for it re-enables the GIL automatically.
+
+## Interview questions: the GIL and concurrency
+
+Short answers you can say out loud. Try answering each question yourself before you open it.
+
+### What is the GIL?
+
+The Global Interpreter Lock is a mutex in CPython that lets only one thread run Python bytecode at a time within an interpreter. It keeps the interpreter’s internals, such as reference counts, safe without fine-grained locking.
+
+### Then why use threads in Python at all?
+
+Because a thread releases the GIL while it waits: blocking I/O on sockets and files, and `time.sleep`, let other threads run. Many C extensions, such as NumPy and `hashlib` on large inputs, release it during heavy computation too.
+
+### How do you speed up CPU-bound Python code?
+
+Use processes (`multiprocessing` or `concurrent.futures.ProcessPoolExecutor`) so each worker has its own interpreter and GIL, move the hot loop into native code that releases the GIL, or run on the free-threaded build.
+
+### Does the GIL make my code thread-safe?
+
+No. Threads can switch between any two bytecodes, so `count += 1` (load, add, store) can interleave and lose updates, which is the race you can step through on this line. Protect shared state with `threading.Lock`, or pass data between threads with `queue.Queue`.
+
+### How often do threads switch?
+
+A thread waiting for the GIL asks for it after the switch interval, 5 ms by default (`sys.getswitchinterval()`), and the holder releases it at the next safe point. A thread that starts blocking I/O releases it straight away.
+
+### What is free-threaded Python?
+
+A separate CPython build without the GIL (PEP 703), added experimentally in 3.13 as `python3.13t` and officially supported from 3.14 (PEP 779). Threads can then run Python code on several cores at once, at some cost to single-threaded speed. `sys._is_gil_enabled()` tells you which mode you’re in.
+
+### asyncio, threads or processes: how do you choose?
+
+asyncio for many concurrent I/O tasks with async libraries on a single thread. Threads for I/O with blocking libraries, or a handful of background tasks. Processes for CPU-bound pure Python, paying for start-up time and for pickling data between them.
+
+### What is the convoy effect?
+
+A CPU-bound thread keeps the GIL for a whole switch interval at a time, so I/O threads that only need it for a moment after each read queue up behind it. Their latency grows even though the total work barely changes, as the Mixed workload on this line shows.
+
+### Is the GIL part of the Python language?
+
+No, it’s part of CPython, the reference implementation. Jython and IronPython never had one, PyPy has its own, and since 3.13 CPython has an optional free-threaded build without it. The language only says what your program means, not how threads are scheduled.
+
+### Why does CPython have a GIL at all?
+
+It’s a simple way to keep the interpreter’s internals safe: reference counts, the allocator and built-in objects can be updated without a lock of their own. That keeps single-threaded code fast and makes C extensions easy to write, at the price of only one thread running Python bytecode at a time.
+
+### When is the GIL released?
+
+During blocking I/O (sockets, files, `time.sleep`), and inside C code that chooses to release it, such as many NumPy operations, `hashlib` on large inputs and `zlib`. While executing Python bytecode, the running thread also gives it up when another thread has waited for the switch interval, 5 ms by default.
+
+### Why was the GIL so hard to remove?
+
+Without it, every reference count change would need an atomic operation or a lock, which slowed single-threaded code in earlier attempts, and many C extensions quietly relied on the GIL for safety. PEP 703 solved this with biased reference counting, per-object locks and immortal objects, and ships as an opt-in build.
+
+### Is `counter += 1` atomic?
+
+No. It compiles to several steps: load the value, add one, store it back, and a thread switch between the load and the store loses an update. Single operations on built-ins, such as `list.append`, happen to be atomic in CPython, but don’t rely on it; protect shared state with a `Lock`.
+
+### `Lock` or `RLock`?
+
+A `Lock` deadlocks if the thread holding it tries to acquire it again. An `RLock` (reentrant lock) lets the owning thread acquire it several times, and it’s released after the same number of releases. Use `RLock` when a locked method calls another locked method of the same object.
+
+### How do you avoid deadlocks?
+
+Always acquire locks in the same global order, hold them for as short a time as possible, use `with` so they’re always released, and never call unknown code, such as callbacks, while holding one. A timeout on `acquire` turns a silent hang into an error you can see.
+
+### How do threads pass data to each other safely?
+
+Through `queue.Queue`. It does its own locking, blocks consumers until items arrive and producers when it’s full, and turns shared state into messages. For signalling, use `threading.Event`; to limit how many threads use a resource, `Semaphore`.
+
+### `ThreadPoolExecutor` or `ProcessPoolExecutor`?
+
+They share the `concurrent.futures` API, so the choice is about the work. Threads for I/O-bound tasks: cheap to start, share memory. Processes for CPU-bound tasks: they get around the GIL, but the function and its arguments must be picklable, and each call pays to send data to another process.
+
+### What does `multiprocessing` cost?
+
+Starting processes, pickling every argument and result to move it between them, and a separate copy of the interpreter and data in each one. How processes start depends on the platform: `spawn` on Windows and macOS, `forkserver` on Linux since 3.14 (before that, `fork`).
+
+### Why is it dangerous to fork a process that has threads?
+
+The child gets a copy of memory, but only the thread that called `fork`. A lock held by any other thread at that moment stays locked forever in the child, so the child can hang on its first log call or allocation. Python 3.12 and later warn about it; prefer `spawn` or `forkserver`.
+
+### How do you share data between processes?
+
+Send messages through a `multiprocessing.Queue` or `Pipe`; the data is pickled and copied. For large arrays, use `multiprocessing.shared_memory`, which gives every process the same bytes without copying. A `Manager` shares Python objects through a server process, which is convenient but slow.
+
+### Does asyncio run code in parallel?
+
+No. It runs one thread, and tasks take turns at each `await`. That handles thousands of waiting connections cheaply, but a single blocking call such as `time.sleep` or `requests.get` freezes every task. Move blocking work off the loop with `asyncio.to_thread` or `run_in_executor`.
+
+### What is the difference between concurrency and parallelism?
+
+Concurrency is dealing with many things at once: tasks make progress by taking turns. Parallelism is doing many things at once: tasks run at the same moment on different cores. Threads under the GIL and asyncio give you concurrency; processes, and free-threaded Python, give you parallelism.
+
+### Can threads speed up NumPy code?
+
+Often, yes. NumPy releases the GIL inside many operations on large arrays, so several threads can run them on different cores. The Python lines between those calls still take turns, so the win depends on how much of the time is spent inside NumPy.
+
+### What are subinterpreters?
+
+Several isolated Python interpreters in one process. Since 3.12 each can have its own GIL (PEP 684), and 3.14 adds the `concurrent.interpreters` module and `InterpreterPoolExecutor`. You get parallelism with less overhead than processes, but objects aren’t shared; data is passed between interpreters.
+
+### How do you check whether the GIL is enabled?
+
+Call `sys._is_gil_enabled()` (3.13 and later). A free-threaded build, usually named `python3.13t` or `python3.14t`, runs without it, but it turns the GIL back on when it imports a C extension that isn’t marked safe, unless you force it off with `PYTHON_GIL=0` or `-X gil=0`.
+
+### Does free-threaded Python make my code thread-safe?
+
+No. Built-in objects lock themselves internally, so a list won’t be corrupted, but `counter += 1` and check-then-act code race exactly as before, only more often, because threads now really run at the same time. You still need locks, and single-threaded code runs somewhat slower in that build.
+
+### `threading.local` or `contextvars`?
+
+`threading.local()` gives every thread its own copy of some attributes, such as a database connection. `contextvars` does the same for asyncio tasks, which share one thread, and also works with threads. For request-scoped data in async code, use `contextvars`.
+
+### How do you stop a running thread?
+
+You can’t kill one from outside. Give it a `threading.Event` and have it check the event regularly and return. A daemon thread (`daemon=True`) doesn’t stop the interpreter from exiting, but it’s killed without cleanup, so open files and transactions may be left half done.
+
+The simulator is a simplified model of CPython’s GIL: a waiting thread asks for a switch after one interval (5 ms by default), the holder drops the lock, and waiters are served first come, first served. Real runs add operating-system noise, so the shapes are right and the numbers are illustrative. Free-threaded runs add 7% per-thread overhead; process start-up is shown as 10 ms.
+
+
+---
+
+---
+title: "JavaScript types explained: typeof, ==, copies, floats | Runtime lines"
+description: "The typeof junction, how V8 stores each type, copies versus references, the exact == algorithm, truthiness and the 64 bits inside a number."
+url: https://superintelligence.ro/js-types
+alternate_en: https://superintelligence.ro/js-types.md
+alternate_ro: https://superintelligence.ro/ro/js-types.md
+---
+
+# JavaScript types, sorted at the junction
+
+Every JavaScript value is one of seven primitive types or an object. Send values through the `typeof` junction, flip the cards to see how V8 stores them, trace exactly what `==` does, and take a number apart bit by bit.
+
+## Seven primitives and one object type
+
+Primitives are immutable and compared by value; objects are mutable and compared by reference. Flip a card to see how V8 represents that type.
+
+**Stack or heap?** You’ll often read that primitives live on the stack and objects on the heap. In V8 almost everything lives on the heap, and a variable holds a pointer to it; only small integers (Smis) fit inside the slot itself. What really separates primitives is that they can’t be changed, so sharing one is invisible.
+
+## Copy or share?
+
+Assigning a primitive copies it. Assigning an object copies a reference. Spread copies one level deep; `structuredClone` copies all the way down.
+
+## What == actually does
+
+`===` never converts. `==` follows a fixed list of conversion rules from the spec, one step at a time. Pick two values and follow the trace, or click any square in the grid.
+
+## Truthy or falsy?
+
+An `if` converts its condition with `Boolean()`. Exactly eight values are falsy; everything else, including some surprising ones, is truthy. Pick a value, then pick the bin you think it belongs in.
+
+## Inside a number
+
+A JavaScript `number` is an IEEE 754 double: 1 sign bit, 11 exponent bits and 52 fraction bits. Type a value, pick a preset, or flip any bit and watch the number change.
+
+## Interview questions: JavaScript types
+
+Short answers you can say out loud. Try answering each question yourself before you open it.
+
+### What are JavaScript’s types?
+
+Seven primitives (`undefined`, `null`, `boolean`, `number`, `bigint`, `string` and `symbol`) plus objects. Arrays, functions, dates, maps and class instances are all objects.
+
+### What can `typeof` return?
+
+Eight strings: "undefined", "boolean", "number", "bigint", "string", "symbol", "object" and "function". `typeof null` is "object" because of a historical bug, so test for null with `=== null` and for arrays with `Array.isArray()`.
+
+### `==` or `===`?
+
+Default to `===`, which never converts types. `==` applies conversion rules: `null` and `undefined` only equal each other, booleans become numbers, a string compared with a number becomes a number, and objects are turned into primitives. The one common use of `==` is `x == null`, which checks for null or undefined.
+
+### Is JavaScript pass-by-reference?
+
+No. Everything is passed by value, but the value of an object variable is a reference. A function can mutate an object you pass in, but reassigning the parameter doesn’t change your variable. Python works the same way.
+
+### Shallow copy or deep copy?
+
+Spread, `Object.assign` and `slice()` copy one level, so nested objects stay shared. `structuredClone` copies deeply, including `Map`, `Set`, `Date` and circular references, but it throws on functions, and class instances come back as plain objects.
+
+### Why is `0.1 + 0.2 !== 0.3`?
+
+Numbers are 64-bit IEEE 754 doubles, and 0.1, 0.2 and 0.3 have no exact binary form, so each is stored as the nearest double and the rounding errors don’t cancel out. Compare with a tolerance, or keep money in integer cents.
+
+### Which values are falsy?
+
+`false`, `0`, `-0`, `0n`, `""`, `null`, `undefined` and `NaN` (plus the legacy `document.all` in browsers). Everything else is truthy, including `"0"`, `"false"`, `[]` and `{}`.
+
+### What is `Number.MAX_SAFE_INTEGER`, and why does it matter?
+
+253 − 1. Above it, not every integer can be represented, so a 64-bit ID from a database can silently change when parsed as a number. Keep such IDs as strings or `BigInt`.
+
+### `null` or `undefined`?
+
+`undefined` means a value was never set: a missing property, an unassigned variable, a function with no return. `null` is an explicit “no value” that you assign. JSON has `null` but no `undefined`, and `JSON.stringify` drops properties whose value is `undefined`.
+
+### Why is `typeof null` equal to `"object"`?
+
+A bug from the first JavaScript engine: values carried a type tag, objects had tag 0, and `null` was the null pointer, which also read as 0. Changing it now would break the web, so it stays. Test for null with `x === null`.
+
+### How do you reliably check that a value is an array?
+
+`Array.isArray(x)`. `typeof` says `"object"`, and `instanceof Array` fails for arrays from another realm, such as an iframe or a `vm` context, because each realm has its own `Array` constructor.
+
+### What is `NaN`, and how do you test for it?
+
+The IEEE 754 value for an undefined result, like `0 / 0` or `Number("abc")`. Its type is `number`, and it isn’t equal to anything, itself included, so `x === NaN` is always false. Use `Number.isNaN(x)`; the global `isNaN` converts first, so `isNaN("abc")` is true.
+
+### How is `Object.is` different from `===`?
+
+In exactly two cases: `Object.is(NaN, NaN)` is true, and `Object.is(0, -0)` is false. Everything else matches `===`. React uses it to decide whether state changed, and `Map`, `Set` and `includes` use a variant that treats `0` and `-0` as equal.
+
+### How can a primitive like `"abc"` have methods?
+
+When you write `"abc".toUpperCase()`, the engine uses a temporary `String` wrapper to find the method on `String.prototype`; the primitive itself doesn’t change. Never create wrappers yourself with `new String` or `new Boolean`: `new Boolean(false)` is an object, so it’s truthy.
+
+### How does JavaScript turn an object into a primitive?
+
+It calls `obj[Symbol.toPrimitive](hint)` if it exists. Otherwise it tries `valueOf()` then `toString()` for a number hint, and the other way round for a string hint. That’s why `[] + {}` is `"[object Object]"`: `[]` becomes `""`, `{}` becomes `"[object Object]"`, and `+` joins strings.
+
+### What is `BigInt`, and when do you use it?
+
+An integer type of any size, written `123n`, with `typeof"bigint"`. Use it for IDs, money in minor units or anything beyond 253. You can’t mix it with numbers in arithmetic (`1n + 1` throws a `TypeError`), it has no fractions, and `JSON.stringify` throws on it.
+
+### What is a `Symbol` for?
+
+A unique value, mostly used as a property key that can’t clash with any other key, even one with the same description. `for...in`, `Object.keys` and `JSON.stringify` skip symbol keys. Built-in ones like `Symbol.iterator` let your objects plug into language features such as `for...of`.
+
+### Does `const` make an object immutable?
+
+No. `const` only stops you from rebinding the name; the object it points at can still change. `Object.freeze` stops changes to the object’s own properties, but it’s shallow: nested objects stay mutable unless you freeze them too.
+
+### `structuredClone` or `JSON.parse(JSON.stringify(x))`?
+
+Prefer `structuredClone`: it copies `Date`, `Map`, `Set`, typed arrays and circular references. The JSON round trip drops `undefined` and functions, turns dates into strings and `NaN` into `null`, and throws on cycles and `BigInt`. Neither copies functions or keeps class prototypes.
+
+### What is a Smi?
+
+A small integer that V8 stores inside the pointer itself, tagged by its lowest bit, so it needs no allocation. Numbers that don’t fit, such as fractions, `-0` or large integers, become a HeapNumber: a 64-bit float in a separate heap object. That’s why integer-heavy code is often faster.
+
+### What are hidden classes, and why does property order matter?
+
+V8 gives every object a hidden class, or shape, that records its properties and where they are stored. Objects built with the same properties in the same order share a shape, so property access can be cached and becomes very fast. Adding properties in different orders, or using `delete`, creates new shapes and slows that code down.
+
+### What are packed and holey arrays?
+
+V8 tracks what an array holds: only small integers, only doubles, or anything, and whether it has holes. Packed small-integer arrays are the fastest. Transitions only go one way: after `arr.push(1.5)` or a hole like `arr[100] = 1`, that array never becomes fast again. `new Array(n)` starts out holey.
+
+### Why does JavaScript have `-0`?
+
+IEEE 754 floats keep a sign bit even for zero. `0 === -0` is true, but `1 / -0` is `-Infinity` and `Object.is(0, -0)` is false. It shows up when a small negative value rounds to zero, and it can tell you which direction a value approached zero from.
+
+### How do you handle money without float errors?
+
+Store integer minor units such as cents, with `BigInt` if they can get large, or use a decimal library, and format with `Intl.NumberFormat`. `toFixed` is not a fix: it rounds the binary value, so `(1.005).toFixed(2)` is `"1.00"`, because 1.005 is really 1.00499999...
+
+### `parseInt` or `Number`?
+
+`parseInt` reads digits until it hits something else, so `parseInt("12px")` is 12. `Number` converts the whole string or returns `NaN`, so `Number("12px")` is `NaN`, but `Number("")` is 0. Always give `parseInt` a radix, and never pass it numbers: `parseInt(0.0000005)` is 5.
+
+### When is `==` acceptable?
+
+For `x == null`, which is true only for `null` and `undefined`, so it catches both in one check. Many style guides allow exactly that one case and use `===` everywhere else.
+
+### What is the difference between `??` and `||`?
+
+`a || b` falls back to `b` for every falsy value, including `0`, `""` and `false`. `a ?? b` falls back only for `null` and `undefined`. For defaults such as `count ?? 10` you want `??`, so that a real 0 is kept.
+
+### `Map` or a plain object?
+
+Use a `Map` for dictionaries with dynamic keys: keys can be any value, including objects, it has `size`, iterates in insertion order and has no inherited keys like `__proto__` to worry about. Object keys are always strings or symbols, and integer-like keys are listed first, in numeric order. Use objects for records with fixed fields.
+
+### What is a `WeakMap` for?
+
+Attaching data to objects you don’t own without keeping them alive. Keys must be objects, and once a key is unreachable anywhere else, the entry can be garbage collected. Because entries can disappear at any time, a `WeakMap` can’t be iterated and has no `size`. Typical uses: caches and private data per DOM node.
+
+typeof results, conversions and truthiness follow the ECMAScript specification and match V8 in Node.js and Chrome. The copy example prints `10 20 Bob [ 'dev', 'ops' ] [ 'dev', 'ops', 'qa' ]` in Node.js 22.
+
+
+---
+
+---
+title: "Python types explained: operator dispatch, +=, hashing | Runtime lines"
+description: "The built-in types and where to use each one, how a + b is dispatched, when += changes things in place, and how dict keys are hashed."
+url: https://superintelligence.ro/py-types
+alternate_en: https://superintelligence.ro/py-types.md
+alternate_ro: https://superintelligence.ro/ro/py-types.md
+---
+
+# Python types, and how they get along
+
+Everything in Python is an object, and its type decides what operators do with it. Explore the type network, send two operands through the operator machinery, then watch `+=` and dict keys behave in ways that surprise most people.
+
+## What happens when you write a + b
+
+Python asks the left operand first. If its method returns `NotImplemented`, the right operand gets a turn with the reflected method. Pick two values and an operator; every step below was recorded from real CPython objects.
+
+## += changes things in place, or doesn’t
+
+`x += y` first tries `x.__iadd__(y)`. Mutable types implement it and change the object in place; immutable ones don’t, so Python falls back to `x = x + y` and rebinds the name.
+
+## Dict keys and hashing
+
+A dict keeps its entries in insertion order plus a small index table. `hash(key)` picks a slot, and keys that are equal must have equal hashes, which is exactly why `1`, `True` and `1.0` end up as one key.
+
+## Interview questions: Python types
+
+Short answers you can say out loud. Try answering each question yourself before you open it.
+
+### Which built-in types are mutable?
+
+`list`, `dict`, `set` and `bytearray`, plus most classes you write. `int`, `float`, `complex`, `bool`, `str`, `bytes`, `tuple`, `frozenset`, `range` and `None` are immutable: every “change” builds a new object.
+
+### What makes an object hashable, and why does it matter?
+
+It needs a `__hash__` that never changes during its lifetime, and objects that compare equal must hash equally. Only hashable objects can be dict keys or set members, which is why a list can’t be a key but a tuple of hashable items can.
+
+### Why do `1`, `True` and `1.0` end up as one dict key?
+
+They compare equal and have the same hash, so the dict treats them as one key. The first key object is kept and only the value is replaced, as the hashing stepper on this line shows.
+
+### What happens when Python evaluates `a + b`?
+
+It calls `a.__add__(b)`. If that returns `NotImplemented`, it tries `b.__radd__(a)`, and raises `TypeError` if both give up. If b’s type is a subclass of a’s type that overrides `__radd__`, b goes first.
+
+### Is `x += y` the same as `x = x + y`?
+
+Not for mutable types. `+=` calls `__iadd__` first, which extends a list in place, so every name for that list sees the change. Immutable types fall back to `x = x + y` and rebind only x. That’s also why `pair[0] += [2]` on a tuple both mutates the list and raises.
+
+### What’s wrong with `def f(items=[])`?
+
+Default values are evaluated once, when the function is defined, so every call shares the same list. Use `items=None` and create a new list inside the function.
+
+### Why write `x is None` instead of `x == None`?
+
+`None` is a singleton, so identity is the precise test. It’s also faster, and it can’t be fooled by a class whose `__eq__` says yes to everything.
+
+### list, tuple, set or dict: how do you choose?
+
+A list for an ordered collection you change, a tuple for a fixed record or a hashable key, a set for uniqueness and fast membership tests, and a dict for lookup by key. Reach for a `frozenset` when you need a set that is hashable.
+
+### How do you copy a nested structure?
+
+`list(x)`, `x.copy()`, `x[:]` and `copy.copy()` are shallow: the new container holds the same inner objects. `copy.deepcopy()` copies everything recursively.
+
+### A tuple is immutable. Why can `t[0] += [1]` both raise an error and change the tuple?
+
+`+=` first calls `list.__iadd__`, which extends the list inside the tuple in place, then tries to store the result back into `t[0]`, which raises `TypeError`. The tuple’s slots can’t change, but the objects in them can. For the same reason, a tuple that contains a list isn’t hashable.
+
+### What is the contract between `__eq__` and `__hash__`?
+
+Objects that compare equal must have equal hashes, and the hash must not change while the object is in a set or dict. That’s why defining `__eq__` sets `__hash__` to `None`: Python makes the class unhashable until you define a hash based on the same fields. `@dataclass(frozen=True)` does both for you.
+
+### How does a dict work inside?
+
+It’s a hash table. The key’s hash picks a slot in a small index array, collisions are resolved by probing other slots, and the index points into a compact array of entries kept in insertion order. Lookups, inserts and deletes are O(1) on average, and a hit is confirmed with `is` or `==` on the key.
+
+### Are dicts ordered?
+
+Yes, insertion order is guaranteed since Python 3.7. `OrderedDict` is still useful: it has `move_to_end`, its equality checks take order into account, and it’s handy for LRU caches. Sets have no order at all.
+
+### What is duck typing?
+
+Python cares what an object can do, not what class it is: anything with `__iter__` can be looped over, anything with `read()` can act as a file. Code usually just tries the operation and handles the exception (EAFP). For type checkers, `typing.Protocol` describes such a shape without inheritance.
+
+### `NotImplemented` or `NotImplementedError`?
+
+`NotImplemented` is a value you return from a binary method such as `__add__` or `__eq__` to say “I don’t know this type”, so Python tries the other operand’s method. `NotImplementedError` is an exception you raise in a method that subclasses must override. Raising the first or returning the second are both bugs.
+
+### When does Python call `__radd__`?
+
+For `a + b`, when `a` has no `__add__` or it returns `NotImplemented`, Python tries `b.__radd__(a)`. One exception: if `b`’s type is a subclass of `a`’s type and overrides `__radd__`, it goes first, so subclasses can take control. It’s how `sum()` works on custom types starting from `0`.
+
+### Are type hints checked at runtime?
+
+No. Python ignores them when it runs your code; tools such as mypy and pyright check them before it runs. They are available at runtime through `typing.get_type_hints()` and `annotationlib`, which is how libraries like Pydantic and FastAPI validate data. Since 3.14 annotations are evaluated lazily, only when something asks for them.
+
+### Can a Python int overflow?
+
+No, ints have arbitrary precision and grow as needed; `sys.maxsize` is the largest container size, not the largest int. Big ints just get slower. Since 3.11, converting an int with more than 4300 digits to or from a string raises `ValueError` by default, to prevent denial-of-service attacks.
+
+### What do `//` and `%` do with negative numbers?
+
+`//` rounds down, towards minus infinity, so `-7 // 2` is `-4`, and `%` takes the sign of the divisor: `-7 % 2` is `1`. JavaScript, C and Java truncate towards zero instead. `int(-3.5)` truncates too, giving `-3`.
+
+### Why is `round(2.5)` equal to 2?
+
+Python rounds halves to the nearest even number (banker’s rounding), so `round(2.5)` is 2 and `round(3.5)` is 4; that avoids a bias when you add many rounded values. `round(2.675, 2)` gives `2.67` because 2.675 can’t be stored exactly. For money, use `decimal.Decimal`.
+
+### `str` or `bytes`?
+
+`str` is text, a sequence of Unicode code points. `bytes` is raw 8-bit data from files, sockets or hashes. Python 3 never converts between them implicitly: `encode()` text into bytes and `decode()` bytes into text at the edges of your program, naming the encoding, usually UTF-8.
+
+### Why can `len("é")` be 2?
+
+`len` counts code points, not what you see. “é” can be one code point (U+00E9) or two: “e” plus a combining accent. Normalise with `unicodedata.normalize("NFC", s)` before comparing or counting. Internally, CPython stores each string with 1, 2 or 4 bytes per character, depending on its widest one.
+
+### Why is building a string with `+=` in a loop slow?
+
+Strings are immutable, so each `+=` can create a new string and copy everything so far, which is O(n²) overall. CPython sometimes extends in place, but other implementations don’t, and you can’t rely on it. Collect the parts in a list and call `"".join(parts)` once, or use `io.StringIO`.
+
+### `isinstance(x, T)` or `type(x) is T`?
+
+`isinstance` accepts subclasses and abstract base classes such as `collections.abc.Mapping`, which is almost always what you want. It has one classic surprise: `bool` is a subclass of `int`, so `isinstance(True, int)` is true and `True + True` is 2. Use `type(x) is T` only when subclasses must be rejected.
+
+### How fast is `x in` a list, a set and a dict?
+
+A list checks every element in turn: O(n). Sets and dicts hash `x` and look in one slot: O(1) on average. Turning a list into a set before checking thousands of values in a loop is one of the easiest big speed-ups. `x in range(...)` is O(1) too: it’s just arithmetic.
+
+### namedtuple, dataclass, TypedDict or dict?
+
+`namedtuple`: an immutable, lightweight tuple with field names. `dataclass`: a normal class with generated `__init__`, `__repr__` and `__eq__`, mutable or frozen, with defaults and methods. `TypedDict`: type hints for dicts that stay plain dicts, such as JSON payloads. A plain `dict`: truly dynamic keys.
+
+### Is `sorted` stable, and what does it need?
+
+Yes. Python’s sort is stable, so items with equal keys keep their order, and you can sort by several keys in several passes, the least important first. It’s O(n log n) and very fast on data that is already partly sorted. It only needs `<`; mixing types that can’t be compared, like `None` and `int`, raises `TypeError`.
+
+### How does Python decide whether an object is truthy?
+
+It calls `__bool__` if the class defines it, otherwise `__len__`, and treats anything else as true. So `None`, `False`, zero of every numeric type and empty containers are falsy. Watch out for `if not x:` when 0 or an empty list is a valid value; write `if x is None:` instead.
+
+### What is the difference between an iterable and an iterator?
+
+An iterable, like a list, can give you a fresh iterator with `iter()`, as often as you like. An iterator remembers its position, returns the next item from `__next__` and is used up after one pass. Generators and file objects are iterators, which is why looping over one a second time yields nothing.
+
+Dispatch traces were recorded by calling each dunder method on real objects in CPython 3.12. String hashes change every run unless `PYTHONHASHSEED` is set, so the hash shown for `'1'` is one possible value.

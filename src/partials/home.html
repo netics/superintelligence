@@ -3,7 +3,7 @@
   <h1>How Node.js and Python actually run your code</h1>
   <p class="lede">Five explorers, drawn as lines on a transit map. Step through real programs one line at a time and watch the call stack, the heap, the GIL and the type system move. Every output was checked against real Node.js and CPython, and every line ends with the interview questions it prepares you for.</p>
   <div class="home-cta">
-    <button type="button" class="btn primary" data-v="node">Start with the event loop</button>
+    <a class="btn primary" href="/node" data-v="node">Start with the event loop</a>
     <button type="button" class="btn" data-jump="home-lines">See all five lines</button>
   </div>
 </section>
@@ -12,11 +12,11 @@
   <h2 id="home-route-h">A route for interview prep</h2>
   <p>Each line builds on the one before it: async first, then values and equality, then how Python stores objects, how its types interact, and finally concurrency.</p>
   <ol class="hroute">
-    <li style="--c: var(--green)"><button type="button" data-v="node"><span class="hr-dot" aria-hidden="true"></span><b>Node event loop</b><small>async fundamentals</small></button></li>
-    <li style="--c: var(--orange)"><button type="button" data-v="js-types"><span class="hr-dot" aria-hidden="true"></span><b>JavaScript types</b><small>values and equality</small></button></li>
-    <li style="--c: var(--blue)"><button type="button" data-v="memory"><span class="hr-dot" aria-hidden="true"></span><b>Python memory</b><small>names and references</small></button></li>
-    <li style="--c: var(--purple)"><button type="button" data-v="py-types"><span class="hr-dot" aria-hidden="true"></span><b>Python types</b><small>dispatch and hashing</small></button></li>
-    <li style="--c: var(--red)"><button type="button" data-v="gil"><span class="hr-dot" aria-hidden="true"></span><b>The GIL</b><small>threads and processes</small></button></li>
+    <li style="--c: var(--green)"><a href="/node" data-v="node"><span class="hr-dot" aria-hidden="true"></span><b>Node event loop</b><small>async fundamentals</small></a></li>
+    <li style="--c: var(--orange)"><a href="/js-types" data-v="js-types"><span class="hr-dot" aria-hidden="true"></span><b>JavaScript types</b><small>values and equality</small></a></li>
+    <li style="--c: var(--blue)"><a href="/memory" data-v="memory"><span class="hr-dot" aria-hidden="true"></span><b>Python memory</b><small>names and references</small></a></li>
+    <li style="--c: var(--purple)"><a href="/py-types" data-v="py-types"><span class="hr-dot" aria-hidden="true"></span><b>Python types</b><small>dispatch and hashing</small></a></li>
+    <li style="--c: var(--red)"><a href="/gil" data-v="gil"><span class="hr-dot" aria-hidden="true"></span><b>The GIL</b><small>threads and processes</small></a></li>
   </ol>
 </section>
 
@@ -31,8 +31,8 @@
       <li>What blocks the event loop, and how do you fix it?</li>
     </ul>
     <div class="lc-btns">
-      <button type="button" class="btn primary" data-v="node">Open the line</button>
-      <button type="button" class="btn" data-v="node" data-jump="n-ref">Interview questions</button>
+      <a class="btn primary" href="/node" data-v="node">Open the line</a>
+      <a class="btn" href="/node#n-ref" data-v="node" data-jump="n-ref">Interview questions</a>
     </div>
   </article>
   <article class="lcard" style="--c: var(--blue)">
@@ -45,8 +45,8 @@
       <li>Why doesn&rsquo;t memory drop after <code>del</code>?</li>
     </ul>
     <div class="lc-btns">
-      <button type="button" class="btn primary" data-v="memory">Open the line</button>
-      <button type="button" class="btn" data-v="memory" data-jump="m-ref">Interview questions</button>
+      <a class="btn primary" href="/memory" data-v="memory">Open the line</a>
+      <a class="btn" href="/memory#m-ref" data-v="memory" data-jump="m-ref">Interview questions</a>
     </div>
   </article>
   <article class="lcard" style="--c: var(--red)">
@@ -59,8 +59,8 @@
       <li>Threads, processes or asyncio: how do you choose?</li>
     </ul>
     <div class="lc-btns">
-      <button type="button" class="btn primary" data-v="gil">Open the line</button>
-      <button type="button" class="btn" data-v="gil" data-jump="g-ref">Interview questions</button>
+      <a class="btn primary" href="/gil" data-v="gil">Open the line</a>
+      <a class="btn" href="/gil#g-ref" data-v="gil" data-jump="g-ref">Interview questions</a>
     </div>
   </article>
   <article class="lcard" style="--c: var(--orange)">
@@ -73,8 +73,8 @@
       <li>Why is <code>0.1 + 0.2 !== 0.3</code>?</li>
     </ul>
     <div class="lc-btns">
-      <button type="button" class="btn primary" data-v="js-types">Open the line</button>
-      <button type="button" class="btn" data-v="js-types" data-jump="j-ref">Interview questions</button>
+      <a class="btn primary" href="/js-types" data-v="js-types">Open the line</a>
+      <a class="btn" href="/js-types#j-ref" data-v="js-types" data-jump="j-ref">Interview questions</a>
     </div>
   </article>
   <article class="lcard" style="--c: var(--purple)">
@@ -87,8 +87,8 @@
       <li>What&rsquo;s wrong with <code>def f(items=[])</code>?</li>
     </ul>
     <div class="lc-btns">
-      <button type="button" class="btn primary" data-v="py-types">Open the line</button>
-      <button type="button" class="btn" data-v="py-types" data-jump="p-ref">Interview questions</button>
+      <a class="btn primary" href="/py-types" data-v="py-types">Open the line</a>
+      <a class="btn" href="/py-types#p-ref" data-v="py-types" data-jump="p-ref">Interview questions</a>
     </div>
   </article>
 </section>

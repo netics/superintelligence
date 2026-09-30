@@ -1,0 +1,29 @@
+# Runtime lines
+
+> An interactive, visual reference for full-stack engineers preparing for interviews: the Node.js event loop, Python memory and the GIL, and the JavaScript and Python type systems, step by step, with interview questions for each.
+
+An interactive reference built by Sergiu Vlad (https://sergiuvlad.com). Five explorers, drawn as lines on a transit map, step through real programs; every output shown was checked against real Node.js and CPython, and each line ends with about 30 interview questions with short answers. The whole site is available in English and in Romanian. The links below are clean Markdown versions of each page.
+
+## Lines (English)
+
+- [Runtime lines: how Node.js and Python actually run your code](https://superintelligence.ro/index.md): An interactive, visual reference for full-stack engineers preparing for interviews: the Node.js event loop, Python memory and the GIL, and the JavaScript and Python type systems, step by step, with interview questions for each.
+- [The Node.js event loop explained, step by step | Runtime lines](https://superintelligence.ro/node.md): How one thread juggles thousands of tasks: the call stack, the nextTick and promise queues, timers, the libuv phases and the thread pool.
+- [Python memory management explained: references, GC, pymalloc | Runtime lines](https://superintelligence.ro/memory.md): Names, objects and reference counts, how the cycle collector frees what refcounting can’t, and why pymalloc keeps memory after you delete things.
+- [Python's GIL explained: threads, processes, free-threading | Runtime lines](https://superintelligence.ro/gil.md): Four threads and one lock on a live timeline: CPU-bound versus I/O-bound work, free-threaded Python, processes, and a race condition you can step through.
+- [JavaScript types explained: typeof, ==, copies, floats | Runtime lines](https://superintelligence.ro/js-types.md): The typeof junction, how V8 stores each type, copies versus references, the exact == algorithm, truthiness and the 64 bits inside a number.
+- [Python types explained: operator dispatch, +=, hashing | Runtime lines](https://superintelligence.ro/py-types.md): The built-in types and where to use each one, how a + b is dispatched, when += changes things in place, and how dict keys are hashed.
+
+## Linii (română)
+
+- [Runtime lines: cum rulează de fapt Node.js și Python codul tău](https://superintelligence.ro/ro/index.md): Un material de referință interactiv și vizual pentru ingineri full-stack care se pregătesc de interviuri: event loop-ul Node.js, memoria Python și GIL-ul, sistemele de tipuri din JavaScript și Python, pas cu pas, cu întrebări de interviu pentru fiecare.
+- [Event loop-ul Node.js explicat pas cu pas | Runtime lines](https://superintelligence.ro/ro/node.md): Cum jonglează un singur thread cu mii de sarcini: stiva de apeluri (call stack), cozile nextTick și de promise-uri, timerele, fazele libuv și thread pool-ul.
+- [Gestionarea memoriei în Python explicată: referințe, GC, pymalloc | Runtime lines](https://superintelligence.ro/ro/memory.md): Nume, obiecte și numărul de referințe, cum eliberează colectorul de cicluri ce nu poate elibera numărarea referințelor și de ce pymalloc păstrează memoria după ce ștergi lucruri.
+- [GIL-ul din Python explicat: thread-uri, procese, free-threading | Runtime lines](https://superintelligence.ro/ro/gil.md): Patru thread-uri și un singur lock pe o cronologie live: muncă limitată de CPU versus muncă limitată de I/O, Python free-threaded, procese și un race condition (condiție de cursă) pe care îl poți parcurge pas cu pas.
+- [Tipurile din JavaScript explicate: typeof, ==, copii, float-uri | Runtime lines](https://superintelligence.ro/ro/js-types.md): Macazul typeof, cum stochează V8 fiecare tip, copii versus referințe, algoritmul exact al lui ==, valorile truthy și falsy și cei 64 de biți dintr-un număr.
+- [Tipurile din Python explicate: dispatch-ul operatorilor, +=, hashing | Runtime lines](https://superintelligence.ro/ro/py-types.md): Tipurile predefinite și unde să-l folosești pe fiecare, cum se face dispatch-ul pentru a + b, când += modifică obiectul pe loc și cum se calculează hash-ul cheilor dintr-un dict.
+
+## Optional
+
+- [llms-full.txt](https://superintelligence.ro/llms-full.txt): Full text of every line in one file (English)
+- [ro/llms-full.txt](https://superintelligence.ro/ro/llms-full.txt): Textul complet al tuturor liniilor, într-un singur fișier (română)
+- [Sitemap](https://superintelligence.ro/sitemap.xml)

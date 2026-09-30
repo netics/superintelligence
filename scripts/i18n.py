@@ -12,7 +12,7 @@ Each language has a catalog, src/i18n/<lang>.json, that maps an English unit
 to its translation. Units that are code or names are stored unchanged.
 
 Usage:
-    python3 scripts/i18n.py extract [lang]   # add new units to the catalog, list stale ones
+    python3 scripts/i18n.py extract [lang]   # sync the catalog with the built English pages
     python3 scripts/i18n.py check [lang]     # report missing and invalid translations
 """
 
@@ -167,7 +167,7 @@ class Walker:
                 end = s.lower().find(f"</{name}", i)
                 end = len(s) if end < 0 else end
                 inner = s[i:end]
-                if name == "script" and not js:
+                if name == "script" and not js and "ld+json" not in m.group(0):
                     inner = self.js(inner, pos + i)
                 out.append(inner)
                 i = end
@@ -396,7 +396,9 @@ def localize(html, lang):
 def main():
     cmd = sys.argv[1] if len(sys.argv) > 1 else "check"
     lang = sys.argv[2] if len(sys.argv) > 2 else "ro"
-    html = (ROOT / "public" / "index.html").read_text()
+    # every English page: they share the body but differ in their head tags
+    pages = sorted(p for p in (ROOT / "public").glob("*.html") if p.name != "404.html")
+    html = "\n".join(p.read_text() for p in pages)
     found = units(html)
     table = load(lang)
     stale = [k for k in table if k not in found]

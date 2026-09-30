@@ -7,7 +7,7 @@ static files Vercel serves next to it.
 
 Usage:
     python3 scripts/build.py
-    SITE_URL=https://example.com python3 scripts/build.py   # absolute og:image, canonical, sitemap
+    SITE_URL=https://preview.example python3 scripts/build.py   # build for another domain
 """
 
 import json
@@ -19,14 +19,15 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import i18n  # noqa: E402
+import seo  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 LIB = SRC / "lib"
 OUT = ROOT / "public"
-SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")
-# language code, path it is served at, Open Graph locale
-LANGS = [("en", "/", "en_US"), ("ro", "/ro", "ro_RO")]
+SITE_URL = os.environ.get("SITE_URL", "https://superintelligence.ro").rstrip("/")
+# language code, Open Graph locale; English is served at /, the others at /<code>
+LANGS = [("en", "en_US"), ("ro", "ro_RO")]
 
 AUTHOR = {
     "name": "Sergiu Vlad",
@@ -41,6 +42,16 @@ SITE_DESC = (
     "the Node.js event loop, Python memory and the GIL, and the JavaScript and Python type systems, "
     "step by step, with interview questions for each."
 )
+
+# Page titles for search results and link previews.
+SEO_TITLES = {
+    "home": SITE_TITLE,
+    "node": "The Node.js event loop explained, step by step",
+    "memory": "Python memory management explained: references, GC, pymalloc",
+    "gil": "Python's GIL explained: threads, processes, free-threading",
+    "js-types": "JavaScript types explained: typeof, ==, copies, floats",
+    "py-types": "Python types explained: operator dispatch, +=, hashing",
+}
 
 VIEWS = [
     # key, source page, id prefix, colour, bullet, label, subtitle, document title
@@ -273,7 +284,8 @@ LANG_REDIRECT = """<script>
 try {
   const l = localStorage.getItem("lang");
   if (l === "ro" || (!l && /^ro\\b/i.test(navigator.language || ""))) {
-    location.replace("/ro" + location.hash);
+    const p = location.pathname.replace(/\\/(index(\\.html)?)?$/, "");
+    location.replace("/ro" + p + location.hash);
   }
 } catch {
   /* storage can be blocked; stay on the English page */
@@ -284,10 +296,23 @@ try {
 ROUTER = """
   const ORDER = %s;
   const TITLES = %s;
+  const LANG = document.documentElement.lang;
+  const BASE = LANG === "en" ? "" : `/${LANG}`;
   const started = new Set();
   const head = $(".site-head");
   const menuBtn = $(".menu-btn");
   let current = "";
+
+  const pathOf = (k, base = BASE) => (k === "home" ? base || "/" : `${base}/${k}`);
+
+  function viewFromPath() {
+    let p = window.location.pathname.replace(/\\/index(\\.html)?$/, "/").replace(/\\.html$/, "");
+    if (BASE && p.startsWith(BASE)) {
+      p = p.slice(BASE.length);
+    }
+    const k = p.replace(/^\\/+|\\/+$/g, "");
+    return ORDER.includes(k) ? k : "home";
+  }
 
   function setMenu(open) {
     head.classList.toggle("open", open);
@@ -301,6 +326,13 @@ ROUTER = """
       document.getElementById(`v-${v}`).hidden = v !== k;
     });
     $$(".menu [data-v]").forEach((b) => b.setAttribute("aria-current", b.dataset.v === k ? "page" : "false"));
+    $$(".lang a").forEach((a) => {
+      a.href = pathOf(k, a.hreflang === "en" ? "" : `/${a.hreflang}`);
+    });
+    const canonical = $('link[rel="canonical"]');
+    if (canonical) {
+      canonical.href = new URL(pathOf(k), canonical.href).href;
+    }
     document.title = TITLES[k];
     if (!started.has(k)) {
       started.add(k);
@@ -317,8 +349,7 @@ ROUTER = """
     const k = ORDER.includes(key) ? key : "home";
     if (k !== current) {
       try {
-        const url = k === "home" ? window.location.pathname + window.location.search : `#${k}`;
-        window.history.pushState(null, "", url);
+        window.history.pushState(null, "", pathOf(k));
       } catch {
         /* sandboxed previews may block history changes; the view still switches */
       }
@@ -343,7 +374,6 @@ ROUTER = """
       } catch {
         /* storage can be blocked; the link still works */
       }
-      lang.href = lang.getAttribute("href") + window.location.hash;
       return;
     }
     if (e.target.closest(".menu-btn")) {
@@ -358,9 +388,13 @@ ROUTER = """
       });
       return;
     }
-    const b = e.target.closest("[data-v], [data-jump]");
+    const b = e.target.closest("a[data-v], button[data-v], [data-jump]");
     if (b) {
       if (b.dataset.v) {
+        if (e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) {
+          return; /* let the browser open the link in a new tab or window */
+        }
+        e.preventDefault();
         go(b.dataset.v, b.dataset.jump);
       } else {
         setMenu(false);
@@ -378,40 +412,89 @@ ROUTER = """
       menuBtn.focus();
     }
   });
-  window.addEventListener("popstate", () => {
-    const h = window.location.hash.slice(1);
-    if (!h || ORDER.includes(h)) {
-      showView(h || "home", false);
+  window.addEventListener("popstate", () => showView(viewFromPath(), false));
+  const legacy = window.location.hash.slice(1);
+  if (legacy !== "home" && ORDER.includes(legacy)) {
+    /* old links used #gil; move them to /gil */
+    try {
+      window.history.replaceState(null, "", pathOf(legacy));
+    } catch {
+      /* keep the hash */
     }
-  });
-  showView(window.location.hash.slice(1), false);
+  }
+  showView(ORDER.includes(legacy) ? legacy : viewFromPath(), false);
 """
 
 
-def lang_switch(lang):
+def page_path(lang, view):
+    base = "" if lang == "en" else f"/{lang}"
+    return (base or "/") if view == "home" else f"{base}/{view}"
+
+
+def page_url(lang, view):
+    path = page_path(lang, view)
+    return SITE_URL + ("/" if path == "/" else path)
+
+
+def page_file(lang, view):
+    folder = OUT if lang == "en" else OUT / lang
+    return folder / ("index.html" if view == "home" else f"{view}.html")
+
+
+def md_path(lang, view):
+    base = "" if lang == "en" else f"/{lang}"
+    return f"{base}/{'index' if view == 'home' else view}.md"
+
+
+def og_path(lang, view):
+    return f"/og/{lang}/{view}.png"
+
+
+def localize_links(html, lang):
+    """Point in-site navigation links (the ones with data-v) at the language's pages."""
+    if lang == "en":
+        return html
+
+    def tag(m):
+        return re.sub(
+            r'href="/([^"]*)"',
+            lambda h: f'href="/{lang}'
+            + ("" if not h.group(1) else "/" + h.group(1))
+            + '"',
+            m.group(0),
+            count=1,
+        )
+
+    return re.sub(r"<a\b[^>]*\bdata-v=[^>]*>", tag, html)
+
+
+def lang_switch(lang, view):
     links = "".join(
-        f'<a href="{path}" hreflang="{code}" lang="{code}" aria-current="{str(code == lang).lower()}" translate="no">{code.upper()}</a>'
-        for code, path, _ in LANGS
+        f'<a href="{page_path(code, view)}" hreflang="{code}" lang="{code}" aria-current="{str(code == lang).lower()}" translate="no">{code.upper()}</a>'
+        for code, _ in LANGS
     )
     return f'<nav class="lang" aria-label="Language">{links}</nav>'
 
 
-def header_html(lang):
+def header_html(lang, view):
+    def cur(k):
+        return "page" if k == view else "false"
+
     items = "".join(
-        f'<button type="button" data-v="{k}" style="--c: var(--{c})" aria-current="false"><span class="bul">{b}</span>'
-        f'<span class="m-t">{label}<small>{sub}</small></span></button>'
+        f'<a href="/{k}" data-v="{k}" style="--c: var(--{c})" aria-current="{cur(k)}"><span class="bul">{b}</span>'
+        f'<span class="m-t">{label}<small>{sub}</small></span></a>'
         for k, _, _, c, b, label, sub, _ in VIEWS
     )
     return f"""<a class="skip" href="#main">Skip to content</a>
 <header class="site-head">
   <div class="wrap sh-in">
-    <button type="button" class="brand" data-v="home" aria-label="{SITE_NAME}, home"><span class="brand-mark" aria-hidden="true"></span>{SITE_NAME}</button>
+    <a href="/" class="brand" data-v="home" aria-label="{SITE_NAME}, home"><span class="brand-mark" aria-hidden="true"></span>{SITE_NAME}</a>
     <nav class="menu" id="menu" aria-label="Main">
-      <button type="button" data-v="home" class="m-home" aria-current="false"><span class="m-t">Start here<small>overview and study route</small></span></button>
+      <a href="/" data-v="home" class="m-home" aria-current="{cur("home")}"><span class="m-t">Start here<small>overview and study route</small></span></a>
       {items}
       <button type="button" data-jump="about" class="m-about"><span class="m-t">About<small>the author</small></span></button>
     </nav>
-    {lang_switch(lang)}
+    {lang_switch(lang, view)}
     <button type="button" class="menu-btn" aria-expanded="false" aria-controls="menu"><span class="mb-icon" aria-hidden="true"></span>Menu</button>
   </div>
 </header>"""
@@ -419,7 +502,7 @@ def header_html(lang):
 
 def footer_html():
     lines = "".join(
-        f'<li><button type="button" data-v="{k}"><span class="bul" style="--c: var(--{c})">{b}</span>{label}</button></li>'
+        f'<li><a href="/{k}" data-v="{k}"><span class="bul" style="--c: var(--{c})">{b}</span>{label}</a></li>'
         for k, _, _, c, b, label, _, _ in VIEWS
     )
     year = date.today().year
@@ -450,71 +533,57 @@ def footer_html():
 </footer>"""
 
 
-def head_meta(lang):
-    og_image = f"{SITE_URL}/og.png" if SITE_URL else "/og.png"
-    path = dict((c, p) for c, p, _ in LANGS)
-    locale = dict((c, loc) for c, _, loc in LANGS)
-    canonical = ""
-    if SITE_URL:
-        canonical = f'<link rel="canonical" href="{SITE_URL}{path[lang]}">\n<meta property="og:url" content="{SITE_URL}{path[lang]}">\n'
-        canonical += "".join(
-            f'<link rel="alternate" hreflang="{c}" href="{SITE_URL}{p}">\n'
-            for c, p, _ in LANGS
-        )
-        canonical += f'<link rel="alternate" hreflang="x-default" href="{SITE_URL}/">\n'
-    canonical += f'<meta property="og:locale" content="{locale[lang]}">\n'
-    canonical += "".join(
+def head_meta(lang, view, title, desc):
+    """Per-page head tags. Text stays English here; the catalog translates it."""
+    url = page_url(lang, view)
+    image = SITE_URL + og_path(lang, view)
+    locale = dict(LANGS)
+    alternates = "".join(
+        f'<link rel="alternate" hreflang="{c}" href="{page_url(c, view)}">\n'
+        for c, _ in LANGS
+    )
+    alternates += (
+        f'<link rel="alternate" hreflang="x-default" href="{page_url("en", view)}">\n'
+    )
+    others = "".join(
         f'<meta property="og:locale:alternate" content="{loc}">\n'
-        for c, _, loc in LANGS
+        for c, loc in LANGS
         if c != lang
     )
-    ld = {
-        "@context": "https://schema.org",
-        "@type": "LearningResource",
-        "name": SITE_NAME,
-        "headline": SITE_TITLE,
-        "description": SITE_DESC,
-        "learningResourceType": "Interactive explainer",
-        "educationalLevel": "Intermediate",
-        "inLanguage": lang,
-        "about": [
-            "Node.js event loop",
-            "Python memory management",
-            "Python GIL",
-            "JavaScript types",
-            "Python types",
-        ],
-        "author": {
-            "@type": "Person",
-            "name": AUTHOR["name"],
-            "url": AUTHOR["url"],
-            "jobTitle": "Senior Software Engineer",
-            "sameAs": [AUTHOR["linkedin"]],
-        },
-    }
-    if SITE_URL:
-        ld["url"] = f"{SITE_URL}{path[lang]}"
+    kind = "website" if view == "home" else "article"
+    alt = (
+        f"{SITE_NAME}: five coloured lines for the event loop, memory, the GIL and types"
+        if view == "home"
+        else title
+    )
     return f"""<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
-<meta name="description" content="{SITE_DESC}">
+<meta name="description" content="{desc}">
 <meta name="author" content="{AUTHOR["name"]}">
+<meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1, max-video-preview:-1">
 <meta name="theme-color" content="{token("paper")}" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0c1322" media="(prefers-color-scheme: dark)">
+<link rel="canonical" href="{url}">
+{alternates}<link rel="alternate" type="text/markdown" href="{SITE_URL}{md_path(lang, view)}" title="Markdown">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
-{canonical}<meta property="og:type" content="website">
+<link rel="manifest" href="/site.webmanifest">
+<meta property="og:type" content="{kind}">
 <meta property="og:site_name" content="{SITE_NAME}">
-<meta property="og:title" content="{SITE_TITLE}">
-<meta property="og:description" content="{SITE_DESC}">
-<meta property="og:image" content="{og_image}">
+<meta property="og:url" content="{url}">
+<meta property="og:locale" content="{locale[lang]}">
+{others}<meta property="og:title" content="{title}">
+<meta property="og:description" content="{desc}">
+<meta property="og:image" content="{image}">
+<meta property="og:image:type" content="image/png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="{SITE_NAME}: five coloured lines for the event loop, memory, the GIL and types">
+<meta property="og:image:alt" content="{alt}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="{SITE_TITLE}">
-<meta name="twitter:description" content="{SITE_DESC}">
-<meta name="twitter:image" content="{og_image}">
-<script type="application/ld+json">{json.dumps(ld)}</script>
+<meta name="twitter:title" content="{title}">
+<meta name="twitter:description" content="{desc}">
+<meta name="twitter:image" content="{image}">
+<!--@JSONLD@-->
 {FONTS}"""
 
 
@@ -571,10 +640,43 @@ def not_found_html():
 """
 
 
+def line_descriptions(home):
+    """The short description of each line, taken from its card on the home page."""
+    out = {}
+    for card in re.findall(r'<article class="lcard".*?</article>', home, re.S):
+        key = re.search(r'data-v="([\w-]+)"', card).group(1)
+        para = re.search(r"<p>(.*?)</p>", card, re.S).group(1)
+        out[key] = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", "", para)).strip()
+    return out
+
+
+def webmanifest():
+    return json.dumps(
+        {
+            "name": SITE_NAME,
+            "short_name": SITE_NAME,
+            "description": SITE_DESC,
+            "start_url": "/",
+            "display": "browser",
+            "background_color": token("paper"),
+            "theme_color": token("paper"),
+            "icons": [
+                {"src": "/favicon.svg", "type": "image/svg+xml", "sizes": "any"},
+                {
+                    "src": "/apple-touch-icon.png",
+                    "type": "image/png",
+                    "sizes": "180x180",
+                },
+            ],
+        },
+        indent=2,
+    )
+
+
 def main():
     css_parts, bodies, scripts = [], [], []
     home = (SRC / "partials" / "home.html").read_text()
-    bodies.append(f'<div class="view" id="v-home" hidden>{home}</div>')
+    bodies.append(("home", home))
     for n, (key, page, p, color, bul, label, sub, _) in enumerate(VIEWS):
         css, body, js = extract(page)
         css, body, js = prefix_ids([css, body, js], p)
@@ -587,14 +689,19 @@ def main():
         body = body[:foot] + ref + body[foot:] if foot >= 0 else body + ref
         nk, _, _, ncolor, nbul, nlabel, _, _ = VIEWS[(n + 1) % len(VIEWS)]
         nxt = (
-            f'<nav class="nextline" aria-label="Next line"><button type="button" data-v="{nk}" style="--c: var(--{ncolor})">'
-            f'<span class="bul" style="--c: var(--{ncolor})">{nbul}</span><span><small>Next line</small><b>{nlabel}</b></span></button></nav>'
+            f'<nav class="nextline" aria-label="Next line"><a href="/{nk}" data-v="{nk}" style="--c: var(--{ncolor})">'
+            f'<span class="bul" style="--c: var(--{ncolor})">{nbul}</span><span><small>Next line</small><b>{nlabel}</b></span></a></nav>'
         )
-        bodies.append(f'<div class="view" id="v-{key}" hidden>{body}{nxt}</div>')
+        bodies.append((key, body + nxt))
         scripts.append(f'  VIEWS["{key}"] = () => {{\n{js}  }};\n')
     page_js = "".join(scripts)
     order = ["home"] + [v[0] for v in VIEWS]
-    titles = {"home": SITE_TITLE, **{v[0]: f"{v[7]} | {SITE_NAME}" for v in VIEWS}}
+    prefix = {v[0]: v[2] for v in VIEWS}
+    titles = {
+        k: SITE_TITLE if k == "home" else f"{SEO_TITLES[k]} | {SITE_NAME}"
+        for k in order
+    }
+    descs = {"home": SITE_DESC, **line_descriptions(home)}
     router = ROUTER % (json.dumps(order), json.dumps(titles))
     lib = (LIB / "shared.js").read_text() + "\n" + (LIB / "mem.js").read_text()
     lib = shake(lib, page_js + router)
@@ -603,21 +710,25 @@ def main():
         (LIB / "shared.css").read_text() + (LIB / "mem.css").read_text() + shell_css
     ) + "".join(css_parts)
 
-    def page(lang):
+    def page(lang, view):
+        views = "".join(
+            f'<div class="view" id="v-{k}"{"" if k == view else " hidden"}>{b}</div>'
+            for k, b in bodies
+        )
         return f"""<!doctype html>
 <html lang="{lang}">
 <head>
 <meta charset="utf-8">
-{LANG_REDIRECT if lang == "en" else ""}{head_meta(lang)}
-<title>{SITE_TITLE}</title>
+{LANG_REDIRECT if lang == "en" else ""}{head_meta(lang, view, SEO_TITLES[view], descs[view])}
+<title>{titles[view]}</title>
 <style>
 {styles}
 </style>
 </head>
 <body>
-{header_html(lang)}
+{header_html(lang, view)}
 <main class="wrap" id="main" tabindex="-1">
-{"".join(bodies)}
+{views}
 </main>
 {footer_html()}
 <script>
@@ -631,7 +742,7 @@ def main():
 </html>
 """
 
-    html = page("en")
+    html = page("en", "home")
     leftovers = re.findall(
         r"@(?:HEAD|SHARED_CSS|MEM_CSS|SHARED_JS|MEM_JS|OPS_JSON|USES_JSON)@|@dark-(?:begin|end)",
         html,
@@ -642,28 +753,92 @@ def main():
     ids = re.findall(r'(?<![\w-])id="([^"$]+)"', html.split("<script>\n(() =>")[0])
     dup = sorted({i for i in ids if ids.count(i) > 1})
     assert not dup, dup
-    OUT.mkdir(parents=True, exist_ok=True)
-    (OUT / "index.html").write_text(html)
-    ro, missing = i18n.localize(page("ro"), "ro")
-    (OUT / "ro").mkdir(exist_ok=True)
-    (OUT / "ro" / "index.html").write_text(ro)
+
+    built, missing = {}, set()
+    for lang, _ in LANGS:
+        for view in order:
+            html = page(lang, view)
+            if lang != "en":
+                html, miss = i18n.localize(html, lang)
+                missing.update(miss)
+                html = localize_links(html, lang)
+            names = {}
+            for k in order[1:]:
+                m = re.search(
+                    rf'data-v="{k}"[^>]*>.*?<span class="m-t">(.*?)<small>', html, re.S
+                )
+                names[seo.text(m.group(1))] = page_url(lang, k)
+            ld = seo.jsonld(
+                html,
+                lang=lang,
+                view=view,
+                prefix=prefix.get(view, ""),
+                url=page_url(lang, view),
+                home_url=page_url(lang, "home"),
+                site=SITE_URL,
+                image=SITE_URL + og_path(lang, view),
+                author=AUTHOR,
+                names=names,
+            )
+            html = html.replace("<!--@JSONLD@-->", seo.script_tag(ld))
+            out = page_file(lang, view)
+            out.parent.mkdir(parents=True, exist_ok=True)
+            out.write_text(html)
+            built[lang, view] = html
+
+    # Markdown twins of every page, llms.txt and llms-full.txt
+    listing = {}
+    for lang, _ in LANGS:
+        full = []
+        for view in order:
+            html = built[lang, view]
+            title = seo.text(re.search(r"<title>(.*?)</title>", html, re.S).group(1))
+            desc = seo.meta(html, "description")
+            md = seo.markdown(
+                html,
+                view,
+                SITE_URL,
+                page_url(lang, view),
+                title,
+                desc,
+                {c: SITE_URL + md_path(c, view) for c, _ in LANGS},
+            )
+            (OUT / md_path(lang, view).lstrip("/")).write_text(md)
+            full.append(md)
+            listing.setdefault(lang, []).append(
+                (title, SITE_URL + md_path(lang, view), desc)
+            )
+        folder = OUT if lang == "en" else OUT / lang
+        (folder / "llms-full.txt").write_text("\n\n---\n\n".join(full))
+    (OUT / "llms.txt").write_text(seo.llms_txt(SITE_URL, SITE_DESC, AUTHOR, listing))
+
+    today = date.today().isoformat()
+    entries = [
+        (
+            page_url(lang, view),
+            {c: page_url(c, view) for c, _ in LANGS},
+            SITE_URL + og_path(lang, view),
+        )
+        for lang, _ in LANGS
+        for view in order
+    ]
+    (OUT / "sitemap.xml").write_text(seo.sitemap(entries, today))
+    (OUT / "robots.txt").write_text(seo.robots(SITE_URL))
+    (OUT / "site.webmanifest").write_text(webmanifest() + "\n")
     (OUT / "favicon.svg").write_text(favicon_svg())
     (OUT / "404.html").write_text(not_found_html())
-    robots = "User-agent: *\nAllow: /\n"
-    if SITE_URL:
-        robots += f"Sitemap: {SITE_URL}/sitemap.xml\n"
-        (OUT / "sitemap.xml").write_text(
-            '<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-            + "".join(
-                f"  <url><loc>{SITE_URL}{path}</loc><lastmod>{date.today().isoformat()}</lastmod></url>\n"
-                for _, path, _ in LANGS
-            )
-            + "</urlset>\n"
+
+    size = sum(len(h.encode()) for h in built.values()) / len(built) / 1024
+    print(f"{len(built)} pages for {SITE_URL}, {size:.0f} KB each on average")
+    no_og = [
+        og_path(l, v)
+        for l, v in built
+        if not (OUT / og_path(l, v).lstrip("/")).exists()
+    ]
+    if no_og:
+        print(
+            f"warning: {len(no_og)} Open Graph images missing (run: python3 scripts/make_images.py)"
         )
-    (OUT / "robots.txt").write_text(robots)
-    print(f"public/index.html {len(html.encode()) / 1024:.1f} KB")
-    print(f"public/ro/index.html {len(ro.encode()) / 1024:.1f} KB")
     if missing:
         print(
             f"warning: {len(missing)} Romanian strings missing, shown in English (run: python3 scripts/i18n.py extract)"
