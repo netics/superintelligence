@@ -75,18 +75,5 @@
         }
       ]
     }
-  ],
-  "redirects": [
-    {
-      "source": "/:path*",
-      "has": [
-        {
-          "type": "host",
-          "value": "www.superintelligence.ro"
-        }
-      ],
-      "destination": "https://superintelligence.ro/:path*",
-      "permanent": true
-    }
   ]
 }

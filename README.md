@@ -28,7 +28,7 @@ vercel --prod   # production
 
 **From Git**: push the repository, then in Vercel choose *Add New Project* and import it. `vercel.json` already sets the framework to *Other* and the output directory to `public`, so leave the build settings at their defaults.
 
-**Domain.** The build targets `https://superintelligence.ro` (canonical URLs, `hreflang`, Open Graph images, sitemap, `llms.txt`). In Vercel, add `superintelligence.ro` and `www.superintelligence.ro` under *Settings → Domains* and create the DNS records Vercel shows; `vercel.json` redirects `www` to the bare domain. To build for another host, set `SITE_URL=https://other.host npm run site`.
+**Domain.** The build targets `https://superintelligence.ro` (canonical URLs, `hreflang`, Open Graph images, sitemap, `llms.txt`). In Vercel, add `superintelligence.ro` and `www.superintelligence.ro` under *Settings → Domains* and create the DNS records Vercel shows. Make `superintelligence.ro` the primary domain and set `www.superintelligence.ro` to redirect to it (there, not in `vercel.json`: two opposite redirects loop forever). To build for another host, set `SITE_URL=https://other.host npm run site`.
 
 **Security headers.** `vercel.json` sends a Content Security Policy plus `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy` and `Permissions-Policy`. The CSP allows only the site itself and Google Fonts. On preview deployments it also blocks the Vercel toolbar (`vercel.live`); add that origin to `script-src`, `connect-src` and `frame-src` if you want the toolbar there.
 
