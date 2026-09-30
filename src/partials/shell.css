@@ -266,11 +266,9 @@ html {
   border-left: 6px solid var(--line);
 }
 .ref summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 14px;
-  padding: 14px 16px;
+  display: block;
+  position: relative;
+  padding: 14px 58px 14px 16px;
   font-weight: 750;
   font-size: 16px;
   cursor: pointer;
@@ -281,7 +279,9 @@ html {
 }
 .ref summary::after {
   content: "+";
-  flex: none;
+  position: absolute;
+  top: 11px;
+  right: 16px;
   display: grid;
   place-items: center;
   width: 28px;
