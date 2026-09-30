@@ -13,14 +13,20 @@ Usage:
 import json
 import os
 import re
+import sys
 from datetime import date
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import i18n  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "src"
 LIB = SRC / "lib"
 OUT = ROOT / "public"
 SITE_URL = os.environ.get("SITE_URL", "").rstrip("/")
+# language code, path it is served at, Open Graph locale
+LANGS = [("en", "/", "en_US"), ("ro", "/ro", "ro_RO")]
 
 AUTHOR = {
     "name": "Sergiu Vlad",
@@ -262,6 +268,19 @@ def token(name):
     return re.search(rf"--{name}:\s*(#[0-9a-fA-F]{{3,8}})", css).group(1)
 
 
+# Sends first-time visitors whose browser prefers Romanian, and anyone who picked it, to /ro.
+LANG_REDIRECT = """<script>
+try {
+  const l = localStorage.getItem("lang");
+  if (l === "ro" || (!l && /^ro\\b/i.test(navigator.language || ""))) {
+    location.replace("/ro" + location.hash);
+  }
+} catch {
+  /* storage can be blocked; stay on the English page */
+}
+</script>
+"""
+
 ROUTER = """
   const ORDER = %s;
   const TITLES = %s;
@@ -317,6 +336,16 @@ ROUTER = """
   }
 
   document.addEventListener("click", (e) => {
+    const lang = e.target.closest(".lang a");
+    if (lang) {
+      try {
+        localStorage.setItem("lang", lang.hreflang);
+      } catch {
+        /* storage can be blocked; the link still works */
+      }
+      lang.href = lang.getAttribute("href") + window.location.hash;
+      return;
+    }
     if (e.target.closest(".menu-btn")) {
       setMenu(!head.classList.contains("open"));
       return;
@@ -359,7 +388,15 @@ ROUTER = """
 """
 
 
-def header_html():
+def lang_switch(lang):
+    links = "".join(
+        f'<a href="{path}" hreflang="{code}" lang="{code}" aria-current="{str(code == lang).lower()}" translate="no">{code.upper()}</a>'
+        for code, path, _ in LANGS
+    )
+    return f'<nav class="lang" aria-label="Language">{links}</nav>'
+
+
+def header_html(lang):
     items = "".join(
         f'<button type="button" data-v="{k}" style="--c: var(--{c})" aria-current="false"><span class="bul">{b}</span>'
         f'<span class="m-t">{label}<small>{sub}</small></span></button>'
@@ -374,6 +411,7 @@ def header_html():
       {items}
       <button type="button" data-jump="about" class="m-about"><span class="m-t">About<small>the author</small></span></button>
     </nav>
+    {lang_switch(lang)}
     <button type="button" class="menu-btn" aria-expanded="false" aria-controls="menu"><span class="mb-icon" aria-hidden="true"></span>Menu</button>
   </div>
 </header>"""
@@ -406,18 +444,29 @@ def footer_html():
     </div>
   </div>
   <div class="wrap sf-bottom">
-    <span>&copy; {year} {AUTHOR["name"]}. All outputs checked against Node.js 22 and CPython 3.12.</span>
+    <span><span translate="no">&copy; {year} {AUTHOR["name"]}.</span> All outputs checked against Node.js 22 and CPython 3.12.</span>
     <span>Spotted a mistake? <a href="mailto:{AUTHOR["email"]}?subject=Runtime%20lines">Let me know</a>.</span>
   </div>
 </footer>"""
 
 
-def head_meta():
+def head_meta(lang):
     og_image = f"{SITE_URL}/og.png" if SITE_URL else "/og.png"
-    canonical = (
-        f'<link rel="canonical" href="{SITE_URL}/">\n<meta property="og:url" content="{SITE_URL}/">\n'
-        if SITE_URL
-        else ""
+    path = dict((c, p) for c, p, _ in LANGS)
+    locale = dict((c, loc) for c, _, loc in LANGS)
+    canonical = ""
+    if SITE_URL:
+        canonical = f'<link rel="canonical" href="{SITE_URL}{path[lang]}">\n<meta property="og:url" content="{SITE_URL}{path[lang]}">\n'
+        canonical += "".join(
+            f'<link rel="alternate" hreflang="{c}" href="{SITE_URL}{p}">\n'
+            for c, p, _ in LANGS
+        )
+        canonical += f'<link rel="alternate" hreflang="x-default" href="{SITE_URL}/">\n'
+    canonical += f'<meta property="og:locale" content="{locale[lang]}">\n'
+    canonical += "".join(
+        f'<meta property="og:locale:alternate" content="{loc}">\n'
+        for c, _, loc in LANGS
+        if c != lang
     )
     ld = {
         "@context": "https://schema.org",
@@ -427,7 +476,7 @@ def head_meta():
         "description": SITE_DESC,
         "learningResourceType": "Interactive explainer",
         "educationalLevel": "Intermediate",
-        "inLanguage": "en",
+        "inLanguage": lang,
         "about": [
             "Node.js event loop",
             "Python memory management",
@@ -444,7 +493,7 @@ def head_meta():
         },
     }
     if SITE_URL:
-        ld["url"] = f"{SITE_URL}/"
+        ld["url"] = f"{SITE_URL}{path[lang]}"
     return f"""<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="{SITE_DESC}">
@@ -491,13 +540,15 @@ def not_found_html():
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>Not found | {SITE_NAME}</title>
+<title>Not found / Pagina nu există | {SITE_NAME}</title>
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <style>
   body {{ margin: 0; min-height: 100vh; display: grid; place-items: center; background: #eef2f6; color: #16202e;
     font: 17px/1.5 system-ui, sans-serif; text-align: center; padding: 24px; }}
   @media (prefers-color-scheme: dark) {{ body {{ background: #0c1322; color: #e6edf5; }} }}
   h1 {{ font-size: 32px; margin: 16px 0 8px; }}
+  [lang="ro"] {{ margin-top: 28px; opacity: 0.85; }}
+  [lang="ro"] h1 {{ font-size: 24px; }}
   a {{ display: inline-block; margin-top: 18px; padding: 10px 18px; border-radius: 999px; background: currentColor; }}
   a span {{ color: #eef2f6; font-weight: 700; }}
   @media (prefers-color-scheme: dark) {{ a span {{ color: #0c1322; }} }}
@@ -509,6 +560,11 @@ def not_found_html():
   <h1>This stop isn&rsquo;t on the map</h1>
   <p>The page you were looking for doesn&rsquo;t exist.</p>
   <a href="/"><span>Back to {SITE_NAME}</span></a>
+  <div lang="ro">
+    <h1>Stația asta nu e pe hartă</h1>
+    <p>Pagina pe care o căutai nu există.</p>
+    <a href="/ro"><span>Înapoi la {SITE_NAME}</span></a>
+  </div>
 </main>
 </body>
 </html>
@@ -546,18 +602,20 @@ def main():
     styles = expand_dark(
         (LIB / "shared.css").read_text() + (LIB / "mem.css").read_text() + shell_css
     ) + "".join(css_parts)
-    html = f"""<!doctype html>
-<html lang="en">
+
+    def page(lang):
+        return f"""<!doctype html>
+<html lang="{lang}">
 <head>
 <meta charset="utf-8">
-{head_meta()}
+{LANG_REDIRECT if lang == "en" else ""}{head_meta(lang)}
 <title>{SITE_TITLE}</title>
 <style>
 {styles}
 </style>
 </head>
 <body>
-{header_html()}
+{header_html(lang)}
 <main class="wrap" id="main" tabindex="-1">
 {"".join(bodies)}
 </main>
@@ -572,6 +630,8 @@ def main():
 </body>
 </html>
 """
+
+    html = page("en")
     leftovers = re.findall(
         r"@(?:HEAD|SHARED_CSS|MEM_CSS|SHARED_JS|MEM_JS|OPS_JSON|USES_JSON)@|@dark-(?:begin|end)",
         html,
@@ -584,6 +644,9 @@ def main():
     assert not dup, dup
     OUT.mkdir(parents=True, exist_ok=True)
     (OUT / "index.html").write_text(html)
+    ro, missing = i18n.localize(page("ro"), "ro")
+    (OUT / "ro").mkdir(exist_ok=True)
+    (OUT / "ro" / "index.html").write_text(ro)
     (OUT / "favicon.svg").write_text(favicon_svg())
     (OUT / "404.html").write_text(not_found_html())
     robots = "User-agent: *\nAllow: /\n"
@@ -592,11 +655,19 @@ def main():
         (OUT / "sitemap.xml").write_text(
             '<?xml version="1.0" encoding="UTF-8"?>\n'
             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-            f"  <url><loc>{SITE_URL}/</loc><lastmod>{date.today().isoformat()}</lastmod></url>\n"
-            "</urlset>\n"
+            + "".join(
+                f"  <url><loc>{SITE_URL}{path}</loc><lastmod>{date.today().isoformat()}</lastmod></url>\n"
+                for _, path, _ in LANGS
+            )
+            + "</urlset>\n"
         )
     (OUT / "robots.txt").write_text(robots)
     print(f"public/index.html {len(html.encode()) / 1024:.1f} KB")
+    print(f"public/ro/index.html {len(ro.encode()) / 1024:.1f} KB")
+    if missing:
+        print(
+            f"warning: {len(missing)} Romanian strings missing, shown in English (run: python3 scripts/i18n.py extract)"
+        )
 
 
 if __name__ == "__main__":

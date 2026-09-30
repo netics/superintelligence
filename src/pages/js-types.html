@@ -1233,12 +1233,15 @@ body {
     return String(v);
   };
   const cv = (v) => `<code>${esc(sv(v))}</code>`;
-  const noun = (t) => {
-    if (t === "Null" || t === "Undefined") {
-      return `<code>${t.toLowerCase()}</code>`;
-    }
-    return t === "Object" ? "an object" : `a ${t.toLowerCase()}`;
-  };
+  const noun = (t) =>
+    ({
+      Null: "<code>null</code>",
+      Undefined: "<code>undefined</code>",
+      Boolean: "a boolean",
+      Number: "a number",
+      String: "a string",
+      Object: "an object",
+    })[t];
   const cap = (h) => h.charAt(0).toUpperCase() + h.slice(1);
 
   function loose(a, b) {
@@ -1250,7 +1253,14 @@ body {
       const ty = tn(y);
       const now = `${sv(x)} == ${sv(y)}`;
       if (tx === ty) {
-        let why = `Both are ${tx === "Null" || tx === "Undefined" ? tx.toLowerCase() : `${tx.toLowerCase()}s`}, so it compares like <code>===</code>.`;
+        const both = {
+          Null: "Both are null",
+          Undefined: "Both are undefined",
+          Boolean: "Both are booleans",
+          Number: "Both are numbers",
+          String: "Both are strings",
+        }[tx];
+        let why = `${both}, so it compares like <code>===</code>.`;
         if (tx === "Object") {
           why = "Both are objects, so <code>==</code> compares identity. These are two different objects.";
         } else if (tx === "Number" && (Number.isNaN(x) || Number.isNaN(y))) {
@@ -1331,7 +1341,7 @@ body {
     $$("button", $("#eqR")).forEach((x) => x.setAttribute("aria-pressed", String(Number(x.dataset.i) === EQ.r)));
     const tr = loose(a[1](), b[1]());
     $("#eqTitle").textContent = `${a[0]} == ${b[0]}`;
-    $("#eqStatus").textContent = `${tr.steps.length} step${tr.steps.length > 1 ? "s" : ""}`;
+    $("#eqStatus").textContent = tr.steps.length > 1 ? `${tr.steps.length} steps` : "1 step";
     const res = [
       [`${a[0]} == ${b[0]}`, MX["=="][EQ.l][EQ.r]],
       [`${a[0]} === ${b[0]}`, MX["==="][EQ.l][EQ.r]],
@@ -1548,7 +1558,7 @@ body {
     $("#fpTitle").textContent = jsStr(x);
     $("#fpKind").textContent = kind;
     const rows = [
-      ["Sign", `<span class="k">${sign}</span> means ${sign ? "negative" : "positive"}`],
+      ["Sign", sign ? '<span class="k">1</span> means negative' : '<span class="k">0</span> means positive'],
       ["Exponent", expText],
       ["Significand", esc(sig)],
       ["Stored exactly", `<span class="k">${esc(exact)}</span>`, "long"],

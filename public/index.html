@@ -2,6 +2,16 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
+<script>
+try {
+  const l = localStorage.getItem("lang");
+  if (l === "ro" || (!l && /^ro\b/i.test(navigator.language || ""))) {
+    location.replace("/ro" + location.hash);
+  }
+} catch {
+  /* storage can be blocked; stay on the English page */
+}
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light dark">
 <meta name="description" content="An interactive, visual reference for full-stack engineers preparing for interviews: the Node.js event loop, Python memory and the GIL, and the JavaScript and Python type systems, step by step, with interview questions for each.">
@@ -10,6 +20,8 @@
 <meta name="theme-color" content="#0c1322" media="(prefers-color-scheme: dark)">
 <link rel="icon" href="/favicon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta property="og:locale" content="en_US">
+<meta property="og:locale:alternate" content="ro_RO">
 <meta property="og:type" content="website">
 <meta property="og:site_name" content="Runtime lines">
 <meta property="og:title" content="Runtime lines: how Node.js and Python actually run your code">
@@ -1215,8 +1227,52 @@ html {
   background: color-mix(in srgb, var(--c, var(--ink)) 10%, var(--surface));
   color: var(--ink);
 }
+.lang {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border: 2px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.lang a {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--ink-2);
+  font: 800 12px var(--font);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.lang a:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.lang a[aria-current="true"] {
+  background: var(--ink);
+  color: var(--surface);
+}
 .menu-btn {
   display: none;
+}
+@media (max-width: 400px) {
+  .sh-in {
+    gap: 8px;
+  }
+  .lang a {
+    min-width: 28px;
+    padding: 0 5px;
+  }
+}
+@media (max-width: 340px) {
+  .brand {
+    gap: 0;
+    font-size: 0;
+  }
 }
 .mb-icon {
   position: relative;
@@ -1229,11 +1285,13 @@ html {
     0 5px 0 currentColor;
 }
 @media (max-width: 1200px) {
+  .lang {
+    margin-left: auto;
+  }
   .menu-btn {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    margin-left: auto;
     height: 40px;
     padding: 0 16px;
     border-radius: 999px;
@@ -1242,6 +1300,11 @@ html {
     color: var(--ink);
     font: 750 14px var(--font);
     cursor: pointer;
+  }
+  @media (max-width: 400px) {
+    .menu-btn {
+      padding: 0 12px;
+    }
   }
   .site-head.open .menu-btn {
     border-color: var(--ink);
@@ -1369,7 +1432,12 @@ html {
 }
 .qa {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+}
+.ref summary code,
+.qa-a code {
+  overflow-wrap: anywhere;
 }
 .ref details {
   border-radius: 14px;
@@ -4415,6 +4483,7 @@ kbd {
       <button type="button" data-v="node" style="--c: var(--green)" aria-current="false"><span class="bul">N</span><span class="m-t">Node event loop<small>call stack, queues, phases</small></span></button><button type="button" data-v="memory" style="--c: var(--blue)" aria-current="false"><span class="bul">M</span><span class="m-t">Python memory<small>names, refcounts, GC, pymalloc</small></span></button><button type="button" data-v="gil" style="--c: var(--red)" aria-current="false"><span class="bul">G</span><span class="m-t">The GIL<small>threads, cores, races</small></span></button><button type="button" data-v="js-types" style="--c: var(--orange)" aria-current="false"><span class="bul">J</span><span class="m-t">JavaScript types<small>typeof, ==, copies, floats</small></span></button><button type="button" data-v="py-types" style="--c: var(--purple)" aria-current="false"><span class="bul">P</span><span class="m-t">Python types<small>dispatch, +=, hashing</small></span></button>
       <button type="button" data-jump="about" class="m-about"><span class="m-t">About<small>the author</small></span></button>
     </nav>
+    <nav class="lang" aria-label="Language"><a href="/" hreflang="en" lang="en" aria-current="true" translate="no">EN</a><a href="/ro" hreflang="ro" lang="ro" aria-current="false" translate="no">RO</a></nav>
     <button type="button" class="menu-btn" aria-expanded="false" aria-controls="menu"><span class="mb-icon" aria-hidden="true"></span>Menu</button>
   </div>
 </header>
@@ -5298,7 +5367,7 @@ kbd {
     </div>
   </div>
   <div class="wrap sf-bottom">
-    <span>&copy; 2026 Sergiu Vlad. All outputs checked against Node.js 22 and CPython 3.12.</span>
+    <span><span translate="no">&copy; 2026 Sergiu Vlad.</span> All outputs checked against Node.js 22 and CPython 3.12.</span>
     <span>Spotted a mistake? <a href="mailto:me@sergiuvlad.com?subject=Runtime%20lines">Let me know</a>.</span>
   </div>
 </footer>
@@ -9121,12 +9190,15 @@ function MemView(host, { refc = true, cols = 3, emptyHeap = "Nothing on the heap
     return String(v);
   };
   const cv = (v) => `<code>${esc(sv(v))}</code>`;
-  const noun = (t) => {
-    if (t === "Null" || t === "Undefined") {
-      return `<code>${t.toLowerCase()}</code>`;
-    }
-    return t === "Object" ? "an object" : `a ${t.toLowerCase()}`;
-  };
+  const noun = (t) =>
+    ({
+      Null: "<code>null</code>",
+      Undefined: "<code>undefined</code>",
+      Boolean: "a boolean",
+      Number: "a number",
+      String: "a string",
+      Object: "an object",
+    })[t];
   const cap = (h) => h.charAt(0).toUpperCase() + h.slice(1);
 
   function loose(a, b) {
@@ -9138,7 +9210,14 @@ function MemView(host, { refc = true, cols = 3, emptyHeap = "Nothing on the heap
       const ty = tn(y);
       const now = `${sv(x)} == ${sv(y)}`;
       if (tx === ty) {
-        let why = `Both are ${tx === "Null" || tx === "Undefined" ? tx.toLowerCase() : `${tx.toLowerCase()}s`}, so it compares like <code>===</code>.`;
+        const both = {
+          Null: "Both are null",
+          Undefined: "Both are undefined",
+          Boolean: "Both are booleans",
+          Number: "Both are numbers",
+          String: "Both are strings",
+        }[tx];
+        let why = `${both}, so it compares like <code>===</code>.`;
         if (tx === "Object") {
           why = "Both are objects, so <code>==</code> compares identity. These are two different objects.";
         } else if (tx === "Number" && (Number.isNaN(x) || Number.isNaN(y))) {
@@ -9219,7 +9298,7 @@ function MemView(host, { refc = true, cols = 3, emptyHeap = "Nothing on the heap
     $$("button", $("#j-eqR")).forEach((x) => x.setAttribute("aria-pressed", String(Number(x.dataset.i) === EQ.r)));
     const tr = loose(a[1](), b[1]());
     $("#j-eqTitle").textContent = `${a[0]} == ${b[0]}`;
-    $("#j-eqStatus").textContent = `${tr.steps.length} step${tr.steps.length > 1 ? "s" : ""}`;
+    $("#j-eqStatus").textContent = tr.steps.length > 1 ? `${tr.steps.length} steps` : "1 step";
     const res = [
       [`${a[0]} == ${b[0]}`, MX["=="][EQ.l][EQ.r]],
       [`${a[0]} === ${b[0]}`, MX["==="][EQ.l][EQ.r]],
@@ -9436,7 +9515,7 @@ function MemView(host, { refc = true, cols = 3, emptyHeap = "Nothing on the heap
     $("#j-fpTitle").textContent = jsStr(x);
     $("#j-fpKind").textContent = kind;
     const rows = [
-      ["Sign", `<span class="k">${sign}</span> means ${sign ? "negative" : "positive"}`],
+      ["Sign", sign ? '<span class="k">1</span> means negative' : '<span class="k">0</span> means positive'],
       ["Exponent", expText],
       ["Significand", esc(sig)],
       ["Stored exactly", `<span class="k">${esc(exact)}</span>`, "long"],
@@ -9994,6 +10073,16 @@ const USES = {"bool": "scores = [72, 45, 90, 58]\npassed = [s >= 60 for s in sco
   }
 
   document.addEventListener("click", (e) => {
+    const lang = e.target.closest(".lang a");
+    if (lang) {
+      try {
+        localStorage.setItem("lang", lang.hreflang);
+      } catch {
+        /* storage can be blocked; the link still works */
+      }
+      lang.href = lang.getAttribute("href") + window.location.hash;
+      return;
+    }
     if (e.target.closest(".menu-btn")) {
       setMenu(!head.classList.contains("open"));
       return;

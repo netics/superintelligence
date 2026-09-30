@@ -103,8 +103,52 @@ html {
   background: color-mix(in srgb, var(--c, var(--ink)) 10%, var(--surface));
   color: var(--ink);
 }
+.lang {
+  display: inline-flex;
+  flex: none;
+  gap: 2px;
+  padding: 3px;
+  border: 2px solid var(--rule);
+  border-radius: 999px;
+  background: var(--surface);
+}
+.lang a {
+  display: grid;
+  place-items: center;
+  min-width: 32px;
+  height: 30px;
+  padding: 0 7px;
+  border-radius: 999px;
+  color: var(--ink-2);
+  font: 800 12px var(--font);
+  letter-spacing: 0.04em;
+  text-decoration: none;
+}
+.lang a:hover {
+  background: var(--surface-2);
+  color: var(--ink);
+}
+.lang a[aria-current="true"] {
+  background: var(--ink);
+  color: var(--surface);
+}
 .menu-btn {
   display: none;
+}
+@media (max-width: 400px) {
+  .sh-in {
+    gap: 8px;
+  }
+  .lang a {
+    min-width: 28px;
+    padding: 0 5px;
+  }
+}
+@media (max-width: 340px) {
+  .brand {
+    gap: 0;
+    font-size: 0;
+  }
 }
 .mb-icon {
   position: relative;
@@ -117,11 +161,13 @@ html {
     0 5px 0 currentColor;
 }
 @media (max-width: 1200px) {
+  .lang {
+    margin-left: auto;
+  }
   .menu-btn {
     display: inline-flex;
     align-items: center;
     gap: 10px;
-    margin-left: auto;
     height: 40px;
     padding: 0 16px;
     border-radius: 999px;
@@ -130,6 +176,11 @@ html {
     color: var(--ink);
     font: 750 14px var(--font);
     cursor: pointer;
+  }
+  @media (max-width: 400px) {
+    .menu-btn {
+      padding: 0 12px;
+    }
   }
   .site-head.open .menu-btn {
     border-color: var(--ink);
@@ -257,7 +308,12 @@ html {
 }
 .qa {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+}
+.ref summary code,
+.qa-a code {
+  overflow-wrap: anywhere;
 }
 .ref details {
   border-radius: 14px;

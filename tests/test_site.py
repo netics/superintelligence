@@ -49,12 +49,13 @@ def go(page, key):
     page.wait_for_timeout(400)
 
 
-def open_page(p, url, width, height, reduced=True, dark=False):
+def open_page(p, url, width, height, reduced=True, dark=False, locale="en-US"):
     browser = p.chromium.launch()
     ctx = browser.new_context(
         viewport={"width": width, "height": height},
         reduced_motion="reduce" if reduced else "no-preference",
         color_scheme="dark" if dark else "light",
+        locale=locale,
     )
     page = ctx.new_page()
     errors = []
@@ -159,6 +160,45 @@ def explorers(page):
     )
 
 
+def languages(p, url):
+    browser, page, errors = open_page(p, url + "#gil", 1440, 900)
+    check(
+        "english page is lang=en",
+        page.evaluate("document.documentElement.lang") == "en",
+    )
+    page.click(".lang a[hreflang='ro']")
+    page.wait_for_timeout(700)
+    check(
+        "switcher opens the same line in Romanian",
+        page.evaluate("location.pathname + location.hash") in ("/ro#gil", "/ro/#gil")
+        and page.is_visible("#v-gil"),
+        page.url,
+    )
+    check(
+        "romanian page is lang=ro",
+        page.evaluate("document.documentElement.lang") == "ro",
+    )
+    check(
+        "romanian page is translated",
+        "Întrebări de interviu" in page.inner_text("#g-ref"),
+    )
+    page.goto(url)
+    page.wait_for_timeout(700)
+    check("the language choice is remembered", "/ro" in page.url, page.url)
+    page.click(".lang a[hreflang='en']")
+    page.wait_for_timeout(700)
+    check(
+        "switching back to English sticks",
+        not page.url.rstrip("/").endswith("/ro"),
+        page.url,
+    )
+    check("no console errors while switching language", not errors, errors[:3])
+    browser.close()
+    browser, page, errors = open_page(p, url, 1440, 900, locale="ro-RO")
+    check("romanian browsers start in Romanian", "/ro" in page.url, page.url)
+    browser.close()
+
+
 def shell(page):
     check(
         "home is the default view",
@@ -189,12 +229,19 @@ with make_server(8765) as httpd:
     threading.Thread(target=httpd.serve_forever, daemon=True).start()
     url = "http://127.0.0.1:8765/"
     with sync_playwright() as p:
-        browser, page, errors = open_page(p, url, 1440, 900)
-        check("page title", page.title().startswith("Runtime lines"))
-        shell(page)
-        explorers(page)
-        check("no console errors or CSP violations (desktop)", not errors, errors[:3])
-        browser.close()
+        for lang, path in (("en", ""), ("ro", "ro/")):
+            print(f"-- {lang}")
+            browser, page, errors = open_page(p, url + path, 1440, 900)
+            check("page title", page.title().startswith("Runtime lines"))
+            shell(page)
+            explorers(page)
+            check(
+                "no console errors or CSP violations (desktop)", not errors, errors[:3]
+            )
+            browser.close()
+        print("-- languages")
+        languages(p, url)
+        print("-- mobile")
         browser, page, errors = open_page(p, url, 390, 844, reduced=False)
         page.click(".menu-btn")
         check("mobile menu opens", page.is_visible("#menu"))

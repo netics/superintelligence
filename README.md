@@ -1,8 +1,8 @@
 # Runtime lines
 
-An interactive, visual reference for full-stack engineers preparing for interviews: how Node.js and Python actually run your code, drawn as a transit map.
+An interactive, visual reference for full-stack engineers preparing for interviews: how Node.js and Python actually run your code, drawn as a transit map. In English at `/` and Romanian at `/ro`.
 
-Five explorers ("lines"), each ending with interview questions and short answers:
+Five explorers ("lines"), each ending with about 30 interview questions and short answers:
 
 | Line | Link | What it covers |
 | --- | --- | --- |
@@ -42,7 +42,9 @@ Requirements: Python 3.12+ and Node.js 20+.
 
 ```bash
 npm install                  # ESLint for `npm run lint`
-npm run site                 # rebuild public/index.html from src/
+npm run site                 # rebuild public/index.html and public/ro/index.html from src/
+npm run i18n                 # add new or changed English text to src/i18n/ro.json (then translate the nulls)
+npm run i18n:check           # fail if any Romanian translation is missing
 npm run dev                  # serve public/ on http://127.0.0.1:8000 with the vercel.json headers
 npm run lint                 # ESLint: the built page script and the Node verification programs
 npm run format:check         # black: build scripts, tests, Python snippets (pip install black)
@@ -62,7 +64,7 @@ python3 scripts/gen_uses.py      # run and black-check the "Where you'd use it" 
 ## Layout
 
 ```
-public/              what Vercel serves: index.html, 404.html, favicon.svg, og.png, robots.txt
+public/              what Vercel serves: index.html, ro/index.html, 404.html, favicon.svg, og.png, robots.txt
 src/
   pages/             one source page per explorer, each still a standalone HTML file
   lib/               shared design system and runtime (shared.css/js) and the memory map (mem.css/js)
@@ -70,6 +72,7 @@ src/
   reference/         interview questions for each line
   data/              generated data: operator dispatch traces, type usage snippets
   snippets/          the Python snippets shown in "Where you'd use it" (black-formatted, runnable)
+  i18n/ro.json       Romanian catalog: English text unit -> Romanian
 scripts/             build, local server, image and data generators
 tests/               end-to-end test suite
 verify/              the programs behind every output shown in the explorers
@@ -86,6 +89,20 @@ verify/              the programs behind every output shown in the explorers
 5. adds the home view, the interview sections, the header menu and the footer, and writes one self-contained `public/index.html`.
 
 Routing uses the URL hash (`#node`, `#gil`, ...), so it works on any static host without rewrites, and the back button moves between lines.
+
+## Languages
+
+English is the source. `scripts/i18n.py` walks the built English page and collects every piece of text a reader sees: text runs in the markup (inline tags such as `<code>` stay inside the unit), readable attributes (`aria-label`, `title`, `alt`, meta descriptions), and the text inside JavaScript strings and template literals, where `${...}` becomes a numbered placeholder (`{0}`, `{1}`) that a translation may move. `src/i18n/ro.json` maps each unit to Romanian; code, program output and names map to themselves. The build writes `public/ro/index.html` from the same page and the catalog, so the explorers' logic exists once.
+
+After changing English text:
+
+```bash
+npm run site && npm run i18n   # new units appear in src/i18n/ro.json as null
+# translate them, then
+npm run site && npm run i18n:check
+```
+
+Missing translations fall back to English, and the build prints a warning. Mark text that must never be translated with `translate="no"`. The header switch keeps the current line (`/#gil` to `/ro#gil`) and remembers the choice; a first visit from a browser set to Romanian starts at `/ro`.
 
 ## Verification
 
