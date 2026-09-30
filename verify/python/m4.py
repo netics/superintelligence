@@ -1,0 +1,5 @@
+x = int("256")
+y = int("256")
+m = int("1000")
+n = int("1000")
+print(x is y, m is n, m == n)

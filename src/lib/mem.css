@@ -1,0 +1,287 @@
+/* ---------- memory map ---------- */
+.memwrap {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 14px 4px 8px;
+}
+.mem {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(170px, 205px) minmax(0, 1fr);
+  gap: 16px 76px;
+  min-width: 700px;
+  align-items: start;
+}
+.frames {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.frame {
+  background: var(--surface);
+  border: 1.5px solid var(--rule);
+  border-radius: 13px;
+  padding: 9px 0 5px 14px;
+}
+.frame.is-top {
+  border-color: var(--line);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--line) 16%, transparent);
+}
+.frame-h {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 12px 6px 0;
+  font-weight: 750;
+  font-size: 13.5px;
+  line-height: 1.2;
+  color: var(--ink-2);
+}
+.frame-h::before {
+  content: "";
+  flex: none;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: var(--line);
+}
+.var {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 42px;
+  padding: 3px 0;
+  border-top: 1px dashed var(--rule-2);
+}
+.vn {
+  font: 650 15.5px/1.2 var(--mono);
+}
+.var.is-hot .vn {
+  color: var(--line);
+}
+.port {
+  flex: none;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 4.5px solid var(--ink-2);
+}
+.var > .port {
+  margin-right: -9.5px;
+}
+.vchip {
+  display: inline-block;
+  margin-right: 10px;
+  padding: 2px 8px;
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--c) 14%, var(--surface));
+  border: 1.5px solid var(--c);
+  font: 650 14px/1.4 var(--mono);
+  white-space: nowrap;
+}
+.heap {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: repeat(var(--cols, 3), minmax(150px, 1fr));
+  gap: 30px 64px;
+  align-items: start;
+  justify-items: center;
+}
+.heap-empty {
+  grid-column: 1 / -1;
+  margin: 8px 0;
+}
+.obj {
+  position: relative;
+  min-width: 150px;
+  max-width: 100%;
+  background: color-mix(in srgb, var(--c) 9%, var(--surface));
+  border: 2px solid var(--c);
+  border-radius: 14px;
+  padding: 8px 12px 11px;
+  transition: opacity 0.4s;
+}
+.obj-h {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.obj .bul {
+  height: 24px;
+  padding: 0 9px;
+  font-size: 12.5px;
+}
+.rc {
+  padding: 4px 7px 3px;
+  border-radius: 999px;
+  border: 1.5px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink-2);
+  font: 750 12.5px/1 var(--font);
+  white-space: nowrap;
+}
+.rc.imm {
+  border-color: var(--c);
+  color: var(--c);
+}
+.val {
+  padding: 7px 2px 0;
+  font: 700 20px/1.3 var(--mono);
+  white-space: nowrap;
+}
+.slots {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding-top: 9px;
+  max-width: 250px;
+}
+.slot {
+  display: inline-grid;
+  place-items: center;
+  min-width: 40px;
+  height: 40px;
+  padding: 0 8px;
+  border-radius: 8px;
+  border: 1.5px solid var(--rule);
+  background: var(--surface);
+  color: var(--c, var(--ink));
+  font: 650 15px/1 var(--mono);
+  white-space: nowrap;
+}
+.slot.is-hot {
+  border-color: var(--c);
+}
+.props {
+  display: grid;
+  gap: 4px;
+  padding-top: 7px;
+}
+.prop {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 38px;
+  padding: 3px 6px 3px 9px;
+  border-radius: 8px;
+  border: 1.5px solid var(--rule);
+  background: var(--surface);
+}
+.pk {
+  font: 600 14.5px/1.2 var(--mono);
+  color: var(--ink-2);
+}
+.prop .vchip {
+  margin-right: 0;
+}
+.obj-id {
+  margin-top: 7px;
+  font: 500 11.5px/1.2 var(--mono);
+  color: var(--ink-3);
+}
+.obj-tag {
+  margin-top: 7px;
+  max-width: 190px;
+  font-weight: 700;
+  font-size: 12.5px;
+  line-height: 1.3;
+  color: var(--red);
+}
+.gcr {
+  position: absolute;
+  bottom: -13px;
+  right: 12px;
+  padding: 4px 8px 3px;
+  border-radius: 999px;
+  background: var(--ink);
+  color: var(--surface);
+  font: 750 11.5px/1 var(--font);
+  white-space: nowrap;
+}
+.obj.is-dim {
+  opacity: 0.55;
+}
+.obj.is-hot {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--c) 26%, transparent);
+}
+.obj.is-garbage {
+  border-style: dashed;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--red) 22%, transparent);
+}
+.obj.is-garbage .gcr {
+  background: var(--red);
+}
+.wires {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.wire .halo {
+  fill: none;
+  stroke: var(--surface);
+  stroke-width: 8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wire .line {
+  fill: none;
+  stroke: var(--c);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.wire .head {
+  fill: var(--c);
+}
+.wire.hot .line {
+  stroke-width: 4.5;
+}
+.wire.hot .halo {
+  stroke-width: 11;
+}
+.wire.cut .line {
+  stroke-dasharray: 3 8;
+  opacity: 0.6;
+}
+.wire.cut .head {
+  opacity: 0.5;
+}
+.wire.dim {
+  opacity: 0.3;
+}
+.none {
+  padding: 4px 12px 6px 0;
+  font-size: 12.5px;
+  font-style: italic;
+  color: var(--ink-3);
+}
+
+.mem.is-narrow {
+  grid-template-columns: minmax(112px, 132px) minmax(0, 1fr);
+  gap: 14px 38px;
+  min-width: 0;
+}
+.mem.is-narrow .heap {
+  gap: 22px 0;
+}
+.mem.is-narrow .frame {
+  padding-left: 10px;
+}
+.mem.is-narrow .vn {
+  font-size: 14px;
+}
+.mem.is-narrow .obj {
+  min-width: 112px;
+}

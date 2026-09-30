@@ -1,0 +1,22 @@
+{
+  "name": "runtime-lines",
+  "version": "1.0.0",
+  "private": true,
+  "description": "An interactive reference for full-stack engineers: how Node.js and Python actually run your code.",
+  "author": "Sergiu Vlad <me@sergiuvlad.com> (https://sergiuvlad.com)",
+  "license": "UNLICENSED",
+  "scripts": {
+    "site": "python3 scripts/build.py",
+    "dev": "python3 scripts/serve.py",
+    "lint": "python3 scripts/extract_js.py && eslint .cache/site.js verify/node",
+    "format:check": "black --check scripts tests verify/python src/snippets",
+    "test": "python3 tests/test_site.py"
+  },
+  "devDependencies": {
+    "eslint": "^9.39.5",
+    "globals": "^15.15.0"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

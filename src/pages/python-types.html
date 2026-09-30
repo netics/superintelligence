@@ -1,0 +1,1134 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--@HEAD@-->
+<title>Python types, and how they get along</title>
+<style>
+/*@SHARED_CSS@*/
+/*@MEM_CSS@*/
+body {
+  --line: var(--purple);
+}
+/* type network */
+.net-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 18px;
+  align-items: start;
+}
+@media (max-width: 900px) {
+  .net-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.filters {
+  padding: 0 clamp(12px, 1.8vw, 20px) 4px;
+}
+.net-hint {
+  margin: 0 0 10px;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.tmap {
+  display: grid;
+  gap: 8px;
+}
+.tline {
+  display: grid;
+  gap: 4px;
+  padding: 8px 10px 10px;
+  border-radius: 14px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule-2);
+}
+.tl-h {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px 10px;
+  font-weight: 800;
+  font-size: 14.5px;
+}
+.tl-h small {
+  font-weight: 600;
+  color: var(--ink-3);
+  font-size: 12.5px;
+}
+.tl-track {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+.tl-track::before {
+  content: "";
+  position: absolute;
+  top: 17px;
+  left: 12.5%;
+  width: calc((var(--n) - 1) * 25%);
+  height: 8px;
+  border-radius: 8px;
+  background: var(--c);
+}
+.tst {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  padding: 4px 2px 2px;
+  border: 0;
+  border-radius: 12px;
+  background: none;
+  color: var(--ink);
+  font: inherit;
+  cursor: pointer;
+  transition: opacity 0.3s;
+}
+.tst-m {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 7px solid var(--c);
+  transition:
+    background-color 0.25s,
+    box-shadow 0.25s;
+}
+.tst-n {
+  font: 750 14.5px var(--mono);
+}
+.tst-e {
+  font: 500 12px var(--mono);
+  color: var(--ink-3);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.tst:hover .tst-m,
+.tst.is-match .tst-m {
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--c) 25%, transparent);
+}
+.tst[aria-pressed="true"] .tst-m {
+  background: var(--c);
+}
+.tst.is-dim {
+  opacity: 0.28;
+}
+.tdetail {
+  display: grid;
+  gap: 12px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 2px solid var(--c);
+  background: color-mix(in srgb, var(--c) 6%, var(--surface));
+}
+.td-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.td-h h3 {
+  margin: 0;
+  font: 800 22px var(--mono);
+}
+.td-ex {
+  width: fit-content;
+  padding: 4px 10px;
+  border-radius: 8px;
+  background: var(--inset);
+  font: 650 15px var(--mono);
+}
+.td-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+  margin: 0;
+}
+.td-facts div {
+  padding: 8px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--rule-2);
+}
+.td-facts dt {
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--ink-3);
+}
+.td-facts dd {
+  margin: 2px 0 0;
+  font-weight: 750;
+}
+.td-facts dd.yes {
+  color: var(--green);
+}
+.td-note {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 15px;
+}
+.td-use {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 2px dashed color-mix(in srgb, var(--c) 35%, var(--rule));
+}
+.td-use-h {
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--c);
+}
+.td-use p {
+  margin: 0;
+  font-size: 15px;
+}
+.td-code {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--rule-2);
+  background: var(--surface);
+  font: 500 12.5px/1.65 var(--mono);
+  white-space: pre;
+  overflow-x: auto;
+  tab-size: 4;
+}
+
+/* operator arena */
+.ops-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .ops-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.picks {
+  display: grid;
+  gap: 8px;
+}
+.ctl-l {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: var(--ink-2);
+}
+.vals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vbtn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  padding: 2px 11px;
+  border-radius: 999px;
+  border: 2px solid color-mix(in srgb, var(--c, var(--rule)) 55%, var(--rule));
+  background: var(--surface);
+  color: var(--ink);
+  font: 650 13.5px/1.2 var(--mono);
+  cursor: pointer;
+}
+.vbtn[aria-pressed="true"] {
+  border-color: var(--c);
+  background: var(--c);
+  color: var(--surface);
+}
+.expr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin: 16px 0 6px;
+  font: 800 24px var(--mono);
+}
+.expr .opx {
+  color: var(--line);
+}
+.pipe {
+  counter-reset: p;
+  display: grid;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.pipe li {
+  counter-increment: p;
+  position: relative;
+  display: grid;
+  gap: 5px;
+  padding: 0 0 16px 46px;
+  opacity: 0.25;
+  transition: opacity 0.35s;
+}
+.pipe li.on {
+  opacity: 1;
+}
+.pipe li::before {
+  content: counter(p);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 6px solid var(--line);
+  font: 850 12px/1 var(--font);
+}
+.pipe li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  top: 30px;
+  bottom: 0;
+  width: 6px;
+  background: var(--line);
+}
+.pc {
+  width: fit-content;
+  max-width: 100%;
+  padding: 3px 10px;
+  border-radius: 8px;
+  background: var(--inset);
+  font: 700 14px var(--mono);
+  overflow-wrap: anywhere;
+}
+.po {
+  display: inline-flex;
+  width: fit-content;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 800;
+  color: var(--surface);
+  background: var(--c);
+}
+.pw {
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.final {
+  display: grid;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 2px solid var(--c);
+  background: color-mix(in srgb, var(--c) 8%, var(--surface));
+  opacity: 0.25;
+  transition: opacity 0.35s;
+}
+.final.on {
+  opacity: 1;
+}
+.final b {
+  font: 800 22px var(--mono);
+  overflow-wrap: anywhere;
+}
+.final span {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--ink-2);
+}
+.rule {
+  margin: 16px 0 0;
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.mx-wrap {
+  overflow-x: auto;
+}
+.mx {
+  border-collapse: separate;
+  border-spacing: 3px;
+  font: 600 11.5px var(--mono);
+}
+.mx th {
+  color: var(--ink-2);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.mx thead th {
+  padding: 0 2px 4px;
+  vertical-align: bottom;
+}
+.mx thead th span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+.mx tbody th {
+  padding-right: 6px;
+  text-align: right;
+}
+.mx td {
+  padding: 0;
+}
+.mx td button {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 30px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--c) 18%, var(--surface));
+  color: var(--ink);
+  font: 650 10.5px var(--mono);
+  cursor: pointer;
+}
+.mx td button.err {
+  background: repeating-linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--red) 16%, var(--surface)) 0 4px,
+    var(--surface) 4px 8px
+  );
+  color: var(--red);
+}
+.mx td button.sel {
+  outline: 3px solid var(--ink);
+  outline-offset: 1px;
+}
+.mx-legend {
+  margin-top: 8px;
+  font-size: 12.5px;
+  color: var(--ink-3);
+}
+
+/* steppers */
+.st-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(250px, 0.85fr) minmax(0, 2.15fr);
+  grid-template-areas: "left main";
+  align-items: start;
+}
+.st-left {
+  grid-area: left;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.st-main {
+  grid-area: main;
+}
+@media (max-width: 960px) {
+  .st-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "code" "main" "out";
+  }
+  .st-left {
+    display: contents;
+  }
+  .st-left .p-code {
+    grid-area: code;
+  }
+  .st-left .p-out {
+    grid-area: out;
+  }
+}
+
+/* dict hashing */
+.hm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--rule-2);
+}
+.hm .hk,
+.hm .hv,
+.hm .hs {
+  padding: 4px 10px;
+  border-radius: 9px;
+  font: 700 14px var(--mono);
+  background: var(--surface);
+  border: 2px solid var(--rule);
+}
+.hm .hk {
+  border-color: var(--line);
+}
+.hm .hs {
+  border-color: var(--ink);
+}
+.hm .hop {
+  font: 700 13px var(--mono);
+  color: var(--ink-3);
+}
+.hm .hcmp {
+  flex-basis: 100%;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.hm .hbad {
+  color: var(--red);
+  font-weight: 750;
+}
+.hidx {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 6px;
+  margin: 14px 0;
+}
+.hslot {
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 6px 0 8px;
+  border-radius: 10px;
+  border: 2px solid var(--rule);
+  background: var(--surface);
+  transition:
+    border-color 0.3s,
+    box-shadow 0.3s;
+}
+.hslot .si {
+  font: 700 11px var(--mono);
+  color: var(--ink-3);
+}
+.hslot .sv {
+  display: grid;
+  place-items: center;
+  min-width: 26px;
+  height: 26px;
+  border-radius: 7px;
+  font: 800 13px var(--mono);
+}
+.hslot .sv.full {
+  background: var(--line);
+  color: var(--surface);
+}
+.hslot.is-probe {
+  border-color: var(--ink);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--ink) 15%, transparent);
+}
+.hent {
+  display: grid;
+  gap: 6px;
+}
+.hrow {
+  display: grid;
+  grid-template-columns: 34px minmax(0, 1.5fr) minmax(0, 0.7fr) minmax(0, 1.2fr);
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1.5px solid var(--rule);
+  font: 600 13.5px var(--mono);
+}
+.hrow.hh {
+  background: none;
+  border: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+  font: 750 12px var(--font);
+  color: var(--ink-3);
+}
+.hrow span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.hrow .hvv {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+.hrepr {
+  margin: 12px 0 0;
+  font: 650 14px var(--mono);
+  color: var(--ink-2);
+}
+.sub-h2 {
+  margin: 14px 0 6px;
+  font-size: 12.5px;
+  font-weight: 750;
+  color: var(--ink-2);
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <h1>Python types, and how they get along</h1>
+    <p class="lede">Everything in Python is an object, and its type decides what operators do with it. Explore the type network, send two operands through the operator machinery, then watch <code>+=</code> and dict keys behave in ways that surprise most people.</p>
+    <nav class="route" id="route" aria-label="Sections"></nav>
+  </header>
+
+  <section class="stage" id="net" aria-label="Type network">
+    <div class="stage-top">
+      <h2>The built-in type network</h2>
+      <span class="status" id="netStatus" style="--c: var(--purple)">14 types</span>
+    </div>
+    <div class="filters">
+      <p class="net-hint">Click any station to see what that type is for, with a small example.</p>
+      <div class="seg" id="netSeg" role="group" aria-label="Highlight">
+        <button type="button" data-f="all" aria-pressed="true">All</button>
+        <button type="button" data-f="mut" aria-pressed="false">Mutable</button>
+        <button type="button" data-f="imm" aria-pressed="false">Immutable</button>
+        <button type="button" data-f="hash" aria-pressed="false">Can be a dict key</button>
+        <button type="button" data-f="seq" aria-pressed="false">Sequences</button>
+      </div>
+    </div>
+    <div class="stage-body net-grid">
+      <div class="tmap" id="tmap"></div>
+      <div class="tdetail" id="tdetail" aria-live="polite"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="ops">
+    <div class="sec-h"><h2>What happens when you write a + b</h2></div>
+    <p class="intro">Python asks the left operand first. If its method returns <code>NotImplemented</code>, the right operand gets a turn with the reflected method. Pick two values and an operator; every step below was recorded from real CPython objects.</p>
+    <div class="stage" id="opStage">
+      <div class="stage-top">
+        <h2>Operator dispatch</h2>
+        <div class="seg" id="opSeg" role="group" aria-label="Operator">
+          <button type="button" data-op="+" aria-pressed="true">a + b</button>
+          <button type="button" data-op="*" aria-pressed="false">a * b</button>
+          <button type="button" data-op="==" aria-pressed="false">a == b</button>
+          <button type="button" data-op="&lt;" aria-pressed="false">a &lt; b</button>
+        </div>
+      </div>
+      <div class="stage-body ops-grid">
+        <div>
+          <div class="picks">
+            <span class="ctl-l" id="opLl">Left operand a</span>
+            <div class="vals" id="opL" role="group" aria-labelledby="opLl"></div>
+            <span class="ctl-l" id="opRl">Right operand b</span>
+            <div class="vals" id="opR" role="group" aria-labelledby="opRl"></div>
+          </div>
+          <div class="expr" id="opExpr"></div>
+          <ol class="pipe" id="opPipe"></ol>
+          <div class="final" id="opFinal"></div>
+          <p class="rule" id="opRule"></p>
+        </div>
+        <div class="pane">
+          <div class="pane-h">Every pair <small>click a square to trace it</small></div>
+          <div class="mx-wrap"><table class="mx" id="opMx"></table></div>
+          <p class="mx-legend">Each square shows the type of the result; striped red squares raise TypeError.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="iadd">
+    <div class="sec-h"><h2>+= changes things in place, or doesn&rsquo;t</h2></div>
+    <p class="intro"><code>x += y</code> first tries <code>x.__iadd__(y)</code>. Mutable types implement it and change the object in place; immutable ones don&rsquo;t, so Python falls back to <code>x = x + y</code> and rebinds the name.</p>
+    <div class="stage" id="iaStage">
+      <div class="stage-top">
+        <h2>Lists, strings and a tuple</h2>
+        <span class="status" style="--c: var(--purple)">CPython 3.12+</span>
+      </div>
+      <div class="stage-body st-grid">
+        <div class="st-left">
+          <div class="pane p-code">
+            <div class="pane-h">augmented.py</div>
+            <ol class="code" id="iaCode" aria-label="Source code"></ol>
+          </div>
+          <div class="pane p-out board">
+            <div class="pane-h">Output</div>
+            <ol class="out" id="iaOut" aria-live="polite"></ol>
+          </div>
+        </div>
+        <div class="pane st-main">
+          <div class="pane-h">Names and heap <small>arrows are references</small></div>
+          <div id="iaMem"></div>
+        </div>
+      </div>
+      <div class="dock" id="iaDock"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="hash">
+    <div class="sec-h"><h2>Dict keys and hashing</h2></div>
+    <p class="intro">A dict keeps its entries in insertion order plus a small index table. <code>hash(key)</code> picks a slot, and keys that are equal must have equal hashes, which is exactly why <code>1</code>, <code>True</code> and <code>1.0</code> end up as one key.</p>
+    <div class="stage" id="hsStage">
+      <div class="stage-top">
+        <h2>Five assignments, two keys</h2>
+        <span class="status" style="--c: var(--purple)">compact dict, 8 slots</span>
+      </div>
+      <div class="stage-body st-grid">
+        <div class="st-left">
+          <div class="pane p-code">
+            <div class="pane-h">keys.py</div>
+            <ol class="code" id="hsCode" aria-label="Source code"></ol>
+          </div>
+          <div class="pane p-out board">
+            <div class="pane-h">Output</div>
+            <ol class="out" id="hsOut" aria-live="polite"></ol>
+          </div>
+        </div>
+        <div class="pane st-main">
+          <div class="pane-h">Inside d <small>index table and entries</small></div>
+          <div class="hm" id="hsMachine"></div>
+          <div class="sub-h2">Index table: slot to entry number</div>
+          <div class="hidx" id="hsIdx"></div>
+          <div class="sub-h2">Entries, in insertion order</div>
+          <div class="hent" id="hsEnt"></div>
+          <p class="hrepr" id="hsRepr"></p>
+        </div>
+      </div>
+      <div class="dock" id="hsDock"></div>
+    </div>
+  </section>
+
+  <p class="foot">Dispatch traces were recorded by calling each dunder method on real objects in CPython 3.12. String hashes change every run unless <code>PYTHONHASHSEED</code> is set, so the hash shown for <code>'1'</code> is one possible value.</p>
+</main>
+<script>
+(() => {
+  "use strict";
+//@SHARED_JS@
+//@MEM_JS@
+//@OPS_JSON@
+//@USES_JSON@
+
+  /* ---------- 1. type network ---------- */
+  const LINES = [
+    { name: "Numbers", c: "blue", b: "N", sub: "mixing two of them widens to the right", types: ["bool", "int", "float", "complex"] },
+    { name: "Text and bytes", c: "green", b: "T", sub: "encode() and decode() cross between them", types: ["str", "bytes", "bytearray"] },
+    { name: "Sequences", c: "orange", b: "S", sub: "ordered, indexable, sliceable", types: ["tuple", "list", "range"] },
+    { name: "Sets and dicts", c: "pink", b: "H", sub: "built on hash tables", types: ["frozenset", "set", "dict"] },
+    { name: "Nothing", c: "slate", b: "0", sub: "exactly one object", types: ["NoneType"] },
+  ];
+  const TYPES = {
+    bool: ["True", 0, 1, 0, "False", "A subclass of int: <code>True == 1</code>, <code>True + True == 2</code>, and <code>True</code> and <code>1</code> are the same dict key."],
+    int: ["42", 0, 1, 0, "0", "Arbitrary precision, so <code>2 ** 100</code> just works. <code>int + float</code> gives a float."],
+    float: ["3.14", 0, 1, 0, "0.0", "A 64-bit IEEE 754 double, exactly like a JavaScript number, so <code>0.1 + 0.2 == 0.3</code> is False here too."],
+    complex: ["2+3j", 0, 1, 0, "0j", "A pair of floats. Mixing it with int or float widens to complex, and <code>&lt;</code> isn&rsquo;t defined for it."],
+    str: ["'hi'", 0, 1, 1, "''", "Immutable Unicode text. <code>s + t</code> builds a new string, and <code>'hi' + b'!'</code> is a TypeError."],
+    bytes: ["b'hi'", 0, 1, 1, "b''", "Immutable raw bytes. <code>'hi'.encode()</code> gives bytes and <code>b'hi'.decode()</code> gives a str back."],
+    bytearray: ["bytearray(b'hi')", 1, 0, 1, "bytearray()", "The mutable version of bytes, which is why it can&rsquo;t be a dict key."],
+    tuple: ["(1, 2)", 0, 1, 1, "()", "Immutable, and hashable only when everything inside is hashable: <code>(1, [2])</code> can&rsquo;t be a key."],
+    list: ["[1, 2]", 1, 0, 1, "[]", "Mutable. <code>+</code> builds a new list, <code>+=</code> extends in place, and <code>* 3</code> repeats references, not copies."],
+    range: ["range(3)", 0, 1, 1, "range(0)", "Lazy: it stores start, stop and step, not the numbers themselves."],
+    frozenset: ["frozenset({1, 2})", 0, 1, 0, "frozenset()", "An immutable set, so it can live inside another set or be a dict key."],
+    set: ["{1, 2}", 1, 0, 0, "set()", "Unique, hashable items with no order. <code>|</code>, <code>&amp;</code>, <code>-</code> and <code>^</code> give union, intersection, difference and symmetric difference."],
+    dict: ["{'a': 1}", 1, 0, 0, "{}", "Keys must be hashable. Keeps insertion order (guaranteed since 3.7), and <code>d1 | d2</code> merges two dicts (3.9+)."],
+    NoneType: ["None", 0, 1, 0, "None", "A singleton. Compare with <code>is None</code>, not <code>== None</code>."],
+  };
+  const WHY = {
+    bool: "Flags and yes-or-no answers. Because <code>True</code> counts as 1, <code>sum()</code> over a list of conditions counts how many hold.",
+    int: "Counters, indexes, IDs and sizes. Python ints never overflow, so big exact numbers just work.",
+    float: "Measurements, averages and science, where tiny rounding errors don&rsquo;t matter. For money, use <code>decimal.Decimal</code> instead.",
+    complex: "Signal processing, electronics and 2D geometry, where multiplying by <code>1j</code> rotates a point by 90 degrees.",
+    str: "All text: names, messages, file paths, JSON keys. Build it with f-strings and reshape it with string methods.",
+    bytes: "Anything that leaves Python as raw data: binary files, network sockets, hashing and encryption all work on bytes, not str.",
+    bytearray: "Binary data you build or patch in place, such as a network packet or a buffer you read chunks into.",
+    tuple: "Fixed records like coordinates, returning several values from one function, and dict keys made of several parts.",
+    list: "Ordered collections that change: rows to process, results to collect, a queue of tasks.",
+    range: "Counting loops, and huge evenly spaced sequences that take almost no memory.",
+    frozenset: "A set that can never change, which makes it hashable. Reach for it when a set has to be a dict key, sit inside another set, or stay constant.",
+    set: "Removing duplicates, fast <code>in</code> checks, and comparing groups: what&rsquo;s new, what&rsquo;s gone, what&rsquo;s shared.",
+    dict: "Looking things up by key: JSON objects, configuration, counting and caching.",
+    NoneType: "&ldquo;No value&rdquo;: a missing result, an optional field, or a default argument. <code>tags=None</code> avoids the classic bug where a default <code>[]</code> is shared between calls.",
+  };
+  const lineOf = (t) => LINES.find((l) => l.types.includes(t));
+  const net = { sel: "int", f: "all" };
+  $("#tmap").innerHTML = LINES.map(
+    (l) =>
+      `<div class="tline" style="--c:var(--${l.c})"><div class="tl-h"><span class="bul">${l.b}</span>${l.name}<small>${l.sub}</small></div><div class="tl-track" style="--n:${l.types.length}">${l.types
+        .map(
+          (t) =>
+            `<button type="button" class="tst" data-t="${t}" aria-pressed="false"><span class="tst-m"></span><span class="tst-n">${t}</span><span class="tst-e">${esc(TYPES[t][0])}</span></button>`,
+        )
+        .join("")}</div></div>`,
+  ).join("");
+
+  function matches(t) {
+    const [, mut, hash, seq] = TYPES[t];
+    return { all: true, mut: mut === 1, imm: mut === 0, hash: hash === 1, seq: seq === 1 }[net.f];
+  }
+
+  function paintNet() {
+    let n = 0;
+    $$(".tst", $("#tmap")).forEach((b) => {
+      const t = b.dataset.t;
+      const m = matches(t);
+      n += m ? 1 : 0;
+      b.classList.toggle("is-dim", !m);
+      b.classList.toggle("is-match", m && net.f !== "all");
+      b.setAttribute("aria-pressed", String(t === net.sel));
+    });
+    $("#netStatus").textContent = net.f === "all" ? "14 types" : `${n} of 14 types`;
+    const [ex, mut, hash, seq, falsy, note] = TYPES[net.sel];
+    const l = lineOf(net.sel);
+    const yes = (v, a, b) => `<dd class="${v ? "yes" : ""}">${v ? a : b}</dd>`;
+    const d = $("#tdetail");
+    d.style.setProperty("--c", `var(--${l.c})`);
+    d.innerHTML = `<div class="td-h"><span class="bul">${l.b}</span><h3>${net.sel}</h3></div><code class="td-ex">${net.sel === "NoneType" ? "type(None).__name__ == 'NoneType'" : `type(${esc(ex)}) is ${net.sel}`}</code><dl class="td-facts"><div><dt>Mutable</dt>${yes(mut, "Yes, changes in place", "No")}</div><div><dt>Hashable</dt>${yes(hash, "Yes, can be a dict key", "No")}</div><div><dt>Sequence</dt>${yes(seq, "Yes, indexable", "No")}</div><div><dt>Falsy value</dt><dd><code>${esc(falsy)}</code></dd></div></dl><p class="td-note">${note}</p><div class="td-use"><span class="td-use-h">Where you&rsquo;d use it</span><p>${WHY[net.sel]}</p><pre class="td-code"><code>${hlBlock(USES[net.sel], "py")}</code></pre></div>`;
+  }
+
+  $("#tmap").addEventListener("click", (e) => {
+    const b = e.target.closest(".tst");
+    if (b) {
+      net.sel = b.dataset.t;
+      paintNet();
+    }
+  });
+  $("#netSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) {
+      net.f = b.dataset.f;
+      $$("button", $("#netSeg")).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      paintNet();
+    }
+  });
+  paintNet();
+
+  /* ---------- 2. operator dispatch ---------- */
+  const VALS = OPS.values;
+  const OPA = { l: 0, r: 1, op: "+", timers: [] };
+  const vcol = (i) => typeColor(VALS[i].type);
+  const picker = (id) => {
+    $(id).innerHTML = VALS.map(
+      (v, i) => `<button type="button" class="vbtn" data-i="${i}" aria-pressed="false" style="--c:var(--${vcol(i)})">${esc(v.src)}</button>`,
+    ).join("");
+  };
+  picker("#opL");
+  picker("#opR");
+
+  function stepView(st, a, b) {
+    const la = VALS[a];
+    const rb = VALS[b];
+    if (st.kind === "fallback") {
+      return {
+        call: `${la.src} is ${rb.src}`,
+        badge: st.repr,
+        c: "blue",
+        why: "Both methods returned NotImplemented, so <code>==</code> falls back to identity: are they the same object?",
+      };
+    }
+    const args = st.side === "left" ? `${la.src}, ${rb.src}` : `${rb.src}, ${la.src}`;
+    const call = `${st.call}(${args})`;
+    const who = st.side === "left" ? "the left operand" : "the right operand";
+    if (st.kind === "ni") {
+      return { call, badge: "NotImplemented", c: "yellow", why: `${who === "the left operand" ? "The left operand" : "The right operand"} doesn&rsquo;t know how to handle the other type and says so.` };
+    }
+    if (st.kind === "missing") {
+      return { call, badge: "no such method", c: "slate", why: `<code>${esc(st.call.split(".")[0])}</code> doesn&rsquo;t define <code>${esc(st.call.split(".")[1])}</code> at all.` };
+    }
+    if (st.kind === "raise") {
+      return { call, badge: "raises TypeError", c: "red", why: esc(st.msg) };
+    }
+    return { call, badge: `returns ${st.repr}`, c: "green", why: `Handled by ${who}, as <code>${esc(st.type)}</code>.` };
+  }
+
+  function paintOps(animate) {
+    OPA.timers.forEach(clearTimeout);
+    OPA.timers = [];
+    const { l, r, op } = OPA;
+    const cell = OPS.ops[op][l][r];
+    $$("button", $("#opL")).forEach((x) => x.setAttribute("aria-pressed", String(Number(x.dataset.i) === l)));
+    $$("button", $("#opR")).forEach((x) => x.setAttribute("aria-pressed", String(Number(x.dataset.i) === r)));
+    $("#opExpr").innerHTML = `<span>${esc(VALS[l].src)}</span><span class="opx">${esc(op)}</span><span>${esc(VALS[r].src)}</span>`;
+    const views = cell.steps.map((st) => stepView(st, l, r));
+    $("#opPipe").innerHTML = views
+      .map(
+        (v) =>
+          `<li><code class="pc">${esc(v.call)}</code><span class="po" style="--c:var(--${v.c})">${esc(v.badge)}</span><span class="pw">${v.why}</span></li>`,
+      )
+      .join("");
+    const fin = cell.final;
+    const fe = $("#opFinal");
+    fe.style.setProperty("--c", fin.kind === "ok" ? `var(--${typeColor(fin.type)})` : "var(--red)");
+    fe.innerHTML =
+      fin.kind === "ok"
+        ? `<span>Result</span><b>${esc(fin.repr)}</b><span>type ${esc(fin.type)}</span>`
+        : `<span>Result</span><b>${esc(fin.msg)}</b>`;
+    const [fwd, ref] = { "+": ["__add__", "__radd__"], "*": ["__mul__", "__rmul__"], "==": ["__eq__", "__eq__"], "<": ["__lt__", "__gt__"] }[op];
+    $("#opRule").innerHTML =
+      op === "<"
+        ? `For <code>a &lt; b</code> Python calls <code>a.${fwd}(b)</code>, then the mirrored <code>b.${ref}(a)</code>. If both return NotImplemented there is no fallback: TypeError.`
+        : op === "=="
+          ? "For <code>==</code> the reflected method is <code>__eq__</code> again, and if both sides return NotImplemented Python compares identity instead of raising."
+          : `Python calls <code>a.${fwd}(b)</code>, then <code>b.${ref}(a)</code> if the first returned NotImplemented. If b&rsquo;s type is a subclass of a&rsquo;s that overrides <code>${ref}</code>, b goes first.`;
+    const items = [...$$("li", $("#opPipe")), fe];
+    if (animate && motionOk()) {
+      items.forEach((el, i) => {
+        OPA.timers.push(setTimeout(() => el.classList.add("on"), 120 + i * 520));
+      });
+    } else {
+      items.forEach((el) => el.classList.add("on"));
+    }
+    paintOpMatrix();
+  }
+
+  function paintOpMatrix() {
+    const t = OPS.ops[OPA.op];
+    const head = VALS.map((v) => `<th scope="col"><span>${esc(v.src)}</span></th>`).join("");
+    const rows = VALS.map(
+      (v, i) =>
+        `<tr><th scope="row">${esc(v.src)}</th>${VALS.map((w, j) => {
+          const f = t[i][j].final;
+          const ok = f.kind === "ok";
+          const label = ok ? (f.type === "bool" ? f.repr : f.type) : "error";
+          const c = ok ? typeColor(f.type) : "red";
+          return `<td><button type="button" tabindex="-1" data-i="${i}" data-j="${j}" class="${ok ? "" : "err"}${i === OPA.l && j === OPA.r ? " sel" : ""}" style="--c:var(--${c})" title="${esc(`${v.src} ${OPA.op} ${w.src}: ${ok ? f.repr : f.msg}`)}">${esc(label)}</button></td>`;
+        }).join("")}</tr>`,
+    ).join("");
+    $("#opMx").innerHTML = `<thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody>`;
+  }
+
+  $("#opL").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) {
+      OPA.l = Number(b.dataset.i);
+      paintOps(true);
+    }
+  });
+  $("#opR").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) {
+      OPA.r = Number(b.dataset.i);
+      paintOps(true);
+    }
+  });
+  $("#opSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) {
+      OPA.op = b.dataset.op;
+      $$("button", $("#opSeg")).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      paintOps(true);
+    }
+  });
+  $("#opMx").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-i]");
+    if (b) {
+      OPA.l = Number(b.dataset.i);
+      OPA.r = Number(b.dataset.j);
+      paintOps(true);
+    }
+  });
+  paintOps(false);
+
+  /* ---------- 3. += stepper ---------- */
+  const IA_CODE = 'nums = [1, 2]\nalias = nums\nnums += [3]\nword = "hi"\ncopy = word\nword += "!"\npair = ([1], "x")\npair[0] += [2]';
+  const obj = (s, id) => s.objs.find((o) => o.id === id);
+  const bind = (s, n, to) => {
+    const vars = s.frames[0].vars;
+    const v = vars.find((x) => x.n === n);
+    if (v) {
+      v.to = to;
+    } else {
+      vars.push({ n, to });
+    }
+  };
+  const iaClear = (s) => {
+    s.wires = {};
+    for (const o of s.objs) {
+      delete o.hot;
+      (o.items || []).forEach((it) => delete it.hot);
+    }
+  };
+  const IA_STEPS = [
+    (s) => {
+      s.line = 1;
+      s.objs.push({ id: "L", type: "list", rc: 1, at: [0, 0], addr: "0x7f3a51c0", items: [{ v: "1", t: "int" }, { v: "2", t: "int" }], hot: true });
+      bind(s, "nums", "L");
+      s.note = "A list with one name.";
+    },
+    (s) => {
+      s.line = 2;
+      bind(s, "alias", "L");
+      obj(s, "L").rc = 2;
+      s.wires = { "g:alias>L": "hot" };
+      s.note = "<code>alias</code> refers to the same list, so its count is 2.";
+    },
+    (s) => {
+      s.line = 3;
+      obj(s, "L").items.push({ v: "3", t: "int", hot: true });
+      s.wires = { "g:nums>L": "hot", "g:alias>L": "hot" };
+      s.note =
+        "list defines <code>__iadd__</code>: it extends the list <b>in place</b> and returns the same object. Same id, and <code>alias</code> sees <code>[1, 2, 3]</code> too.";
+    },
+    (s) => {
+      s.line = 4;
+      s.objs.push({ id: "S", type: "str", at: [0, 1], val: "'hi'" });
+      bind(s, "word", "S");
+      s.note = "A string. String literals like this one are interned and immortal, so no count is shown.";
+    },
+    (s) => {
+      s.line = 5;
+      bind(s, "copy", "S");
+      s.wires = { "g:copy>S": "hot" };
+      s.note = "<code>copy</code> refers to the same string object.";
+    },
+    (s) => {
+      s.line = 6;
+      s.objs.push({ id: "S2", type: "str", at: [0, 2], val: "'hi!'", hot: true });
+      bind(s, "word", "S2");
+      s.wires = { "g:word>S2": "hot" };
+      s.note =
+        "str has no <code>__iadd__</code>, so Python runs <code>word = word + \"!\"</code>. That builds a <b>new</b> string and rebinds only <code>word</code>; <code>copy</code> still says 'hi'.";
+    },
+    (s) => {
+      s.line = 7;
+      s.objs.push(
+        { id: "L2", type: "list", rc: 1, at: [1, 3], addr: "0x7f3a5540", items: [{ v: "1", t: "int" }] },
+        { id: "P", type: "tuple", rc: 1, at: [0, 3], addr: "0x7f3a5600", items: [{ to: "L2" }, { v: "'x'", t: "str" }], hot: true },
+      );
+      bind(s, "pair", "P");
+      s.note = "A tuple holding a list. The tuple can&rsquo;t change, but the list inside it can.";
+    },
+    (s) => {
+      s.line = 8;
+      obj(s, "L2").items.push({ v: "2", t: "int", hot: true });
+      s.note =
+        "<code>pair[0] += [2]</code> first calls <code>list.__iadd__</code> on the list inside the tuple. That works: the list is now <code>[1, 2]</code>&hellip;";
+    },
+    (s) => {
+      s.line = 8;
+      obj(s, "P").mark = "garbage";
+      obj(s, "P").tag = "pair[0] = ... refused";
+      s.out = [{ t: "TypeError: 'tuple' object does not support item assignment", err: true }];
+      s.note =
+        "&hellip;then Python stores the result back with <code>pair[0] = &hellip;</code>, and tuples refuse item assignment. The TypeError is raised, <b>but the list was already changed</b>.";
+    },
+  ].map((fn) => (s) => {
+    iaClear(s);
+    fn(s);
+  });
+  const iaMem = MemView($("#iaMem"), { refc: true, cols: 2, emptyHeap: "Nothing on the heap yet" });
+  Player({ dock: $("#iaDock"), root: $("#iaStage"), render: (st, ctx) => iaMem.render(st, ctx), codeEl: $("#iaCode"), outEl: $("#iaOut") }).load(
+    buildStates(
+      {
+        line: 0,
+        note: "<code>x += y</code> tries <code>x.__iadd__(y)</code> first and falls back to <code>x = x + y</code>. Step through to see why that matters.",
+        frames: [{ id: "g", name: "module globals", vars: [] }],
+        objs: [],
+        out: [],
+        cols: 2,
+      },
+      IA_STEPS,
+    ),
+    { code: IA_CODE, lang: "py" },
+  );
+
+  /* ---------- 4. dict hashing ---------- */
+  const HS_CODE = 'd = {}\nd[1] = "int one"\nd[True] = "bool true"\nd[1.0] = "float one"\nd["1"] = "str one"\nd[[1]] = "list"';
+  const H1 = "-3325627637563958579";
+  const hsInit = {
+    line: 0,
+    note: "Keys are looked up through <code>hash()</code>. Watch which assignments add an entry and which only replace a value.",
+    probe: null,
+    idx: Array(8).fill(null),
+    ents: [],
+    out: [],
+    repr: "",
+  };
+  const HS_STEPS = [
+    (s) => {
+      s.line = 1;
+      s.repr = "d == {}";
+      s.note = "An empty dict starts with an index table of 8 slots and room for 5 entries before it grows.";
+    },
+    (s) => {
+      s.line = 2;
+      s.probe = { key: "1", hash: "1", slot: 1, cmp: "Slot 1 is empty, so the key is new." };
+      s.note = "<code>hash(1)</code> is 1, and <code>1 &amp; 7</code> (the table size minus one) picks slot 1.";
+    },
+    (s) => {
+      s.ents.push({ h: "1", k: "1", v: "'int one'" });
+      s.idx[1] = 0;
+      s.repr = "d == {1: 'int one'}";
+      s.note = "The entry is appended to the entries array, and slot 1 now points at entry 0.";
+    },
+    (s) => {
+      s.line = 3;
+      s.probe = { key: "True", hash: "1", slot: 1, cmp: "Slot 1 holds entry 0 with key 1. Same hash, and 1 == True, so it&rsquo;s the <b>same key</b>." };
+      s.note = "<code>hash(True)</code> is also 1. That&rsquo;s required: <code>True == 1</code>, and equal keys must have equal hashes.";
+    },
+    (s) => {
+      s.ents[0].v = "'bool true'";
+      s.repr = "d == {1: 'bool true'}";
+      s.note = "Only the <b>value</b> is replaced. The stored key is still the int <code>1</code>; the key object is never swapped.";
+    },
+    (s) => {
+      s.line = 4;
+      s.probe = { key: "1.0", hash: "1", slot: 1, cmp: "Same hash again, and 1 == 1.0, so the same key once more." };
+      s.ents[0].v = "'float one'";
+      s.repr = "d == {1: 'float one'}";
+      s.note = "<code>hash(1.0)</code> is 1 and <code>1.0 == 1</code>, so the value is replaced a second time. Three assignments, one entry.";
+    },
+    (s) => {
+      s.line = 5;
+      s.probe = { key: "'1'", hash: H1, slot: 5, cmp: "Slot 5 is empty. The string '1' is not equal to the int 1, so it&rsquo;s a different key anyway." };
+      s.note =
+        "String hashes are randomized per process (<code>PYTHONHASHSEED</code>), so this slot changes from run to run. In this run the hash lands in slot 5.";
+    },
+    (s) => {
+      s.ents.push({ h: H1, k: "'1'", v: "'str one'" });
+      s.idx[5] = 1;
+      s.repr = "d == {1: 'float one', '1': 'str one'}";
+      s.note = "A second entry, appended in insertion order.";
+    },
+    (s) => {
+      s.line = 6;
+      s.probe = { key: "[1]", hash: null, slot: null, cmp: "" };
+      s.out = [{ t: "TypeError: unhashable type: 'list'", err: true }];
+      s.note =
+        "Lists are mutable, so they have no hash. If a key could change after it was stored, the dict could never find it again.";
+    },
+  ];
+
+  function hsRender(st) {
+    const p = st.probe;
+    let m = '<span class="empty">No key is being looked up</span>';
+    if (p && p.hash === null) {
+      m = `<span class="hk">${esc(p.key)}</span><span class="hop">hash()</span><span class="hbad">TypeError: unhashable type: 'list'</span>`;
+    } else if (p) {
+      m = `<span class="hk">${esc(p.key)}</span><span class="hop">hash()</span><span class="hv" data-k="hv" data-v="${esc(p.key)}">${esc(p.hash)}</span><span class="hop">&amp; 7</span><span class="hs">slot ${p.slot}</span><span class="hcmp">${p.cmp}</span>`;
+    }
+    $("#hsMachine").innerHTML = m;
+    $("#hsIdx").innerHTML = st.idx
+      .map(
+        (e, i) =>
+          `<div class="hslot${p && p.slot === i ? " is-probe" : ""}"><span class="si">${i}</span><span class="sv${e === null ? "" : " full"}">${e === null ? "" : e}</span></div>`,
+      )
+      .join("");
+    $("#hsEnt").innerHTML = st.ents.length
+      ? `<div class="hrow hh"><span>#</span><span>hash</span><span>key</span><span>value</span></div>${st.ents
+          .map(
+            (e, i) =>
+              `<div class="hrow" data-k="e${i}"><span>${i}</span><span title="${esc(e.h)}">${esc(e.h)}</span><span>${esc(e.k)}</span><span><span class="hvv" data-k="ev${i}" data-v="${esc(e.v)}">${esc(e.v)}</span></span></div>`,
+          )
+          .join("")}`
+      : '<span class="empty">No entries yet</span>';
+    $("#hsRepr").textContent = st.repr;
+  }
+
+  Player({ dock: $("#hsDock"), root: $("#hsStage"), render: hsRender, codeEl: $("#hsCode"), outEl: $("#hsOut") }).load(
+    buildStates(hsInit, HS_STEPS),
+    { code: HS_CODE, lang: "py" },
+  );
+
+  /* ---------- route ---------- */
+  const SECTIONS = ["#net", "#ops", "#iadd", "#hash"];
+  routeMap(
+    $("#route"),
+    [
+      { label: "The type network", sub: "14 built-in types" },
+      { label: "Operator dispatch", sub: "__add__ and __radd__" },
+      { label: "+= in place", sub: "or a new object" },
+      { label: "Dict keys", sub: "hash, slot, equality" },
+    ],
+    { onPick: (i) => scrollToEl($(SECTIONS[i])) },
+  );
+})();
+</script>
+</body>
+</html>

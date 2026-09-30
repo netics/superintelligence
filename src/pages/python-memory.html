@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--@HEAD@-->
+<title>Python memory, drawn as a map</title>
+<style>
+/*@SHARED_CSS@*/
+/*@MEM_CSS@*/
+body {
+  --line: var(--blue);
+}
+.pm-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(240px, 0.72fr) minmax(0, 2.28fr);
+  grid-template-areas: "left mem";
+  align-items: start;
+}
+.pm-left {
+  grid-area: left;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.p-code {
+  grid-area: code;
+}
+.p-out {
+  grid-area: out;
+}
+.p-out .out {
+  min-height: 64px;
+}
+.p-mem {
+  grid-area: mem;
+  min-height: 380px;
+}
+@media (max-width: 960px) {
+  .pm-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "code" "mem" "out";
+  }
+  .pm-left {
+    display: contents;
+  }
+  .p-mem {
+    min-height: 0;
+  }
+}
+.gcsteps {
+  counter-reset: g;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.gcsteps[hidden] {
+  display: none;
+}
+.gcsteps li {
+  counter-increment: g;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 12px 5px 5px;
+  border-radius: 999px;
+  border: 1.5px solid var(--rule);
+  background: var(--surface);
+  font-size: 13px;
+  font-weight: 650;
+  color: var(--ink-3);
+}
+.gcsteps li::before {
+  content: counter(g);
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: var(--inset);
+  color: var(--ink-2);
+  font: 850 11.5px/1 var(--font);
+}
+.gcsteps li.is-done {
+  color: var(--ink-2);
+}
+.gcsteps li.is-done::before {
+  background: var(--line);
+  color: var(--surface);
+}
+.gcsteps li.is-cur {
+  border-color: var(--red);
+  color: var(--ink);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--red) 18%, transparent);
+}
+.gcsteps li.is-cur::before {
+  background: var(--red);
+  color: var(--surface);
+}
+.aside {
+  padding: 0 clamp(12px, 1.8vw, 20px) 16px;
+}
+.aside .callout {
+  margin: 0;
+}
+.stage-top .seg button {
+  padding: 7px 12px;
+}
+
+/* pymalloc widget */
+.pmx {
+  display: grid;
+  gap: 14px;
+  padding: clamp(12px, 1.8vw, 20px);
+}
+.pmx-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.kinds {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 8px;
+}
+.kind {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 3px 10px 3px 4px;
+  border-radius: 999px;
+  border: 1.5px solid var(--rule);
+  background: var(--surface);
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+.kind i {
+  width: 16px;
+  height: 16px;
+  border-radius: 4px;
+  background: var(--c);
+}
+.kind b {
+  color: var(--ink);
+  font-weight: 700;
+}
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+.stats b {
+  margin-right: 5px;
+  font: 700 19px/1 var(--mono);
+  color: var(--ink);
+}
+.arenas {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+@media (max-width: 760px) {
+  .arenas {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.arena {
+  padding: 10px;
+  border-radius: 14px;
+  border: 2px solid var(--line);
+  background: color-mix(in srgb, var(--line) 5%, var(--surface));
+  transition:
+    border-color 0.4s,
+    background-color 0.4s;
+}
+.arena.is-off {
+  border-style: dashed;
+  border-color: var(--rule);
+  background: transparent;
+}
+.arena-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-weight: 800;
+}
+.arena-h small {
+  font-size: 12.5px;
+  font-weight: 650;
+  color: var(--ink-3);
+}
+.arena:not(.is-off) .arena-h small {
+  color: var(--line);
+}
+.pools {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+@media (max-width: 480px) {
+  .pools {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+.pool {
+  padding: 6px;
+  border-radius: 10px;
+  border: 1.5px solid var(--rule);
+  background: var(--surface);
+}
+.arena.is-off .pool {
+  opacity: 0.45;
+}
+.pool-h {
+  display: flex;
+  justify-content: space-between;
+  gap: 4px;
+  margin: 0 0 5px;
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--ink-3);
+  white-space: nowrap;
+}
+.pool.is-used .pool-h {
+  color: var(--ink);
+}
+.blocks {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 3px;
+}
+.blk {
+  aspect-ratio: 1;
+  border-radius: 4px;
+  background: var(--inset);
+}
+.blk.on {
+  background: var(--c);
+}
+.sys {
+  padding: 10px;
+  border-radius: 14px;
+  border: 2px dashed var(--rule);
+}
+.sys-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 42px;
+  align-items: center;
+}
+.big {
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 42px;
+  border-radius: 8px;
+  background: var(--c);
+  color: var(--surface);
+  font: 800 11.5px/1.1 var(--font);
+  text-align: center;
+}
+.pm-note {
+  margin: 0;
+  min-height: 3em;
+  max-width: 90ch;
+  font-size: 15.5px;
+}
+.remember {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px;
+}
+.remember .card b {
+  display: block;
+  margin: 0 0 4px;
+}
+.remember .card {
+  color: var(--ink-2);
+  font-size: 15px;
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <h1>Python memory, drawn as a map</h1>
+    <p class="lede">Names on the left, objects on the heap to the right, and every arrow is a reference. Step through four short programs to see when objects are shared, counted, and freed, then play with the allocator that stores them.</p>
+    <nav class="route" id="route" aria-label="Sections"></nav>
+  </header>
+
+  <section class="stage" id="lab" aria-label="Memory stepper">
+    <div class="stage-top">
+      <h2 id="scTitle">Names point to objects</h2>
+      <div class="seg" id="scSeg" role="group" aria-label="Program"></div>
+    </div>
+    <div class="stage-body pm-grid">
+      <div class="pm-left">
+        <div class="pane p-code">
+          <div class="pane-h">demo.py <small>CPython 3.12+</small></div>
+          <ol class="code" id="code" aria-label="Source code"></ol>
+        </div>
+        <div class="pane p-out board">
+          <div class="pane-h">Output</div>
+          <ol class="out" id="out" aria-live="polite"></ol>
+        </div>
+      </div>
+      <div class="pane p-mem">
+        <div class="pane-h">Namespaces and heap <small>arrows are references</small></div>
+        <div id="mem"></div>
+        <ol class="gcsteps" id="gcsteps" hidden>
+          <li>Copy counts into gc_refs</li>
+          <li>Subtract references inside the group</li>
+          <li>Find what&rsquo;s unreachable</li>
+          <li>Free it</li>
+        </ol>
+      </div>
+    </div>
+    <div class="aside"><p class="callout" id="aside"></p></div>
+    <div class="dock" id="dock"></div>
+  </section>
+
+  <section class="sec" id="pymalloc">
+    <div class="sec-h"><h2>Where small objects actually live</h2></div>
+    <p class="intro">CPython doesn&rsquo;t ask the operating system for memory every time you create an object. Objects of 512 bytes or less come from <b>pymalloc</b>: big <b>arenas</b> split into <b>pools</b>, and each pool hands out fixed-size blocks for one size class (multiples of 16 bytes). Allocate and free some objects and watch what happens to the arenas.</p>
+    <div class="stage" id="pmStage">
+      <div class="pmx">
+        <div class="kinds" id="kinds"></div>
+        <div class="pmx-bar">
+          <button type="button" class="btn primary" data-pm="alloc">Allocate 10 objects</button>
+          <button type="button" class="btn" data-pm="big">Allocate a 1 KB bytes</button>
+          <button type="button" class="btn" data-pm="half">Free a random half</button>
+          <button type="button" class="btn" data-pm="one">Free all but one</button>
+          <button type="button" class="btn" data-pm="reset">Free everything</button>
+        </div>
+        <div class="stats" id="stats"></div>
+        <p class="pm-note" id="pmNote" aria-live="polite"></p>
+        <div class="arenas" id="arenas"></div>
+        <div class="sys">
+          <div class="arena-h">System malloc <small>objects over 512 bytes skip pymalloc</small></div>
+          <div class="sys-list" id="sysList"></div>
+        </div>
+      </div>
+    </div>
+    <p class="foot">Scaled down for the screen: a real pool holds hundreds of blocks and a real arena holds many pools. Sizes are <code>sys.getsizeof()</code> on 64-bit CPython 3.12, rounded up to the next 16-byte size class.</p>
+  </section>
+
+  <section class="sec" id="remember">
+    <div class="sec-h"><h2>What to remember</h2></div>
+    <div class="remember">
+      <div class="card"><b>Names are references</b>Assignment, argument passing and <code>return</code> copy references, never objects. Mutations are visible through every name.</div>
+      <div class="card"><b>Counting frees most objects</b>When an object&rsquo;s count reaches 0 it is freed on the spot, deterministically. <code>del</code> only removes a name.</div>
+      <div class="card"><b>The GC is for cycles</b>Objects that refer to each other keep their counts above 0. The cyclic collector finds and frees them.</div>
+      <div class="card"><b>Freed isn&rsquo;t returned</b>Freed blocks go back to pymalloc, not the OS. An arena is only released when every pool in it is empty.</div>
+    </div>
+  </section>
+  <p class="foot">Counts on the map include only references created by the program. <code>sys.getrefcount()</code> reports one more (its own argument), and immortal objects report a huge fixed value.</p>
+</main>
+<script>
+(() => {
+  "use strict";
+//@SHARED_JS@
+//@MEM_JS@
+
+  /* ---------- helpers for writing steps ---------- */
+  const obj = (s, id) => s.objs.find((o) => o.id === id);
+  const drop = (s, id) => {
+    s.objs = s.objs.filter((o) => o.id !== id);
+  };
+  const frame = (s, id) => s.frames.find((f) => f.id === id);
+  const bind = (s, fid, n, to) => {
+    const f = frame(s, fid);
+    const v = f.vars.find((x) => x.n === n);
+    if (v) {
+      v.to = to;
+    } else {
+      f.vars.push({ n, to });
+    }
+  };
+  const unbind = (s, fid, n) => {
+    const f = frame(s, fid);
+    f.vars = f.vars.filter((x) => x.n !== n);
+  };
+  const int = (v) => ({ v, t: "int" });
+  const str = (v) => ({ v, t: "str" });
+
+  function clearMarks(s) {
+    s.wires = {};
+    for (const o of s.objs) {
+      delete o.hot;
+      if (o.items) {
+        o.items.forEach((it) => delete it.hot);
+      }
+    }
+    for (const f of s.frames) {
+      f.vars.forEach((v) => delete v.hot);
+    }
+  }
+
+  function initial(note) {
+    return { line: 0, note, frames: [{ id: "g", name: "module globals", vars: [] }], objs: [], out: [], gc: 0 };
+  }
+
+  const SCENARIOS = [
+    {
+      label: "Names point to objects",
+      short: "Names",
+      sub: "b = a shares one list",
+      code: 'a = [1, 2, 3]\nb = a\nb.append(4)\na = None\ndel b',
+      intro:
+        "A Python variable is a <b>name</b> that refers to an object. Names live in a namespace (here the module&rsquo;s globals); objects live on the heap and carry a <b>reference count</b>.",
+      aside:
+        "The small ints inside the list are drawn in their slots to keep the map readable. Really, each slot holds a reference to a shared int object, exactly like the names on the left.",
+      steps: [
+        (s) => {
+          s.line = 1;
+          s.objs.push({ id: "L", type: "list", rc: 1, at: [0, 0], addr: "0x7f1c2a40", items: [int("1"), int("2"), int("3")], hot: true });
+          bind(s, "g", "a", "L");
+          s.note =
+            "<code>[1, 2, 3]</code> creates a list object on the heap, then the name <code>a</code> is bound to it. One reference, so its count is 1.";
+        },
+        (s) => {
+          s.line = 2;
+          bind(s, "g", "b", "L");
+          obj(s, "L").rc = 2;
+          s.wires = { "g:b>L": "hot" };
+          s.note =
+            "Assignment never copies. <code>b = a</code> copies the <b>reference</b>, so the same list now has two names and a count of 2.";
+        },
+        (s) => {
+          s.line = 3;
+          obj(s, "L").items.push({ v: "4", t: "int", hot: true });
+          s.note =
+            "<code>b.append(4)</code> mutates the one list both names point to, so <code>a</code> sees <code>[1, 2, 3, 4]</code> too.";
+        },
+        (s) => {
+          s.line = 4;
+          s.objs.push({ id: "N", type: "NoneType", label: "None", rc: "imm", at: [0, 1], val: "None" });
+          bind(s, "g", "a", "N");
+          obj(s, "L").rc = 1;
+          s.note =
+            "Rebinding <code>a</code> points it at <code>None</code>, a singleton that is immortal since 3.12. The list loses a reference, but <code>b</code> still keeps it alive.";
+        },
+        (s) => {
+          s.line = 5;
+          unbind(s, "g", "b");
+          const L = obj(s, "L");
+          L.rc = 0;
+          L.mark = "garbage";
+          L.tag = "count reached 0";
+          s.note = "<code>del b</code> removes the <b>name</b>, not the object. The list&rsquo;s count drops to 0&hellip;";
+        },
+        (s) => {
+          s.line = 5;
+          drop(s, "L");
+          s.note =
+            "&hellip;so CPython frees it <b>immediately</b>, right inside the <code>del</code> statement. No garbage-collector pause is involved.";
+        },
+      ],
+    },
+    {
+      label: "Calling a function",
+      short: "Function call",
+      sub: "frames share references",
+      code: 'def grow(items):\n    items.append("!")\n    size = len(items)\n    return size\n\n\ndata = ["hi"]\nresult = grow(data)',
+      intro: "A call creates a new <b>frame</b> with its own local names. Watch what the function shares with its caller.",
+      aside:
+        "Arguments are passed as references (call by sharing). Mutating a shared object is visible to the caller; rebinding the parameter, as in <code>items = []</code>, only changes the local name.",
+      steps: [
+        (s) => {
+          s.line = 1;
+          s.objs.push({ id: "F", type: "function", label: "function", at: [0, 0], val: "grow(items)" });
+          bind(s, "g", "grow", "F");
+          s.note = "<code>def</code> is a statement: it builds a function object and binds the name <code>grow</code> to it.";
+        },
+        (s) => {
+          s.line = 7;
+          s.objs.push({ id: "L", type: "list", rc: 1, at: [0, 1], addr: "0x7f1c2a40", items: [str("'hi'")], hot: true });
+          bind(s, "g", "data", "L");
+          s.note =
+            "<code>data</code> refers to a new list. Its string item is drawn inside the slot, but it is a reference to a str object too.";
+        },
+        (s) => {
+          s.line = 8;
+          s.frames.push({ id: "f", name: "grow() frame", vars: [{ n: "items", to: "L" }], top: true });
+          obj(s, "L").rc = 2;
+          s.wires = { "f:items>L": "hot" };
+          s.note =
+            "Calling <code>grow(data)</code> pushes a new frame. The parameter <code>items</code> is bound to the <b>same</b> list: Python passes references, so the count goes to 2.";
+        },
+        (s) => {
+          s.line = 2;
+          obj(s, "L").items.push({ v: "'!'", t: "str", hot: true });
+          s.note = "<code>items.append(\"!\")</code> changes that one shared list.";
+        },
+        (s) => {
+          s.line = 3;
+          s.objs.push({ id: "I2", type: "int", rc: "imm", at: [0, 2], val: "2" });
+          bind(s, "f", "size", "I2");
+          s.note =
+            "<code>len(items)</code> returns 2. Small ints from -5 to 256 are preallocated, and since Python 3.12 they are <b>immortal</b>: their count never changes.";
+        },
+        (s) => {
+          s.line = [8, 4];
+          s.frames = s.frames.filter((f) => f.id !== "f");
+          obj(s, "L").rc = 1;
+          bind(s, "g", "result", "I2");
+          s.wires = { "g:result>I2": "hot" };
+          s.note =
+            "<code>return size</code> pops the frame. Its local names disappear, the list drops back to one reference, and <code>result</code> refers to the same int 2.";
+        },
+        (s) => {
+          s.line = 0;
+          s.note =
+            "<code>data</code> is now <code>['hi', '!']</code>. The function changed the caller&rsquo;s list because both names shared one object.";
+        },
+      ],
+    },
+    {
+      label: "Cycles and the GC",
+      short: "Cycles",
+      cols: 2,
+      sub: "counts that never hit 0",
+      code: "import gc\n\na = []\nb = []\na.append(b)\nb.append(a)\ndel a, b\nprint(gc.collect())",
+      intro:
+        "Reference counting frees most objects instantly, but it can&rsquo;t see <b>cycles</b>. That&rsquo;s what the cyclic garbage collector is for.",
+      aside:
+        "The collector runs on its own as allocations pile up, and it only tracks containers (lists, dicts, class instances), because only they can form cycles. CPython 3.14.0 to 3.14.4 shipped an incremental collector; 3.14.5 went back to the generational one from 3.13.",
+      steps: [
+        (s) => {
+          s.line = 1;
+          s.objs.push({ id: "M", type: "module", label: "module", at: [0, 0], val: "gc" });
+          bind(s, "g", "gc", "M");
+          s.note = "<code>import gc</code> binds the name <code>gc</code> to the module object.";
+        },
+        (s) => {
+          s.line = 3;
+          s.objs.push({ id: "A", type: "list", rc: 1, at: [0, 2], addr: "0x7f1c3e00", items: [], hot: true });
+          bind(s, "g", "a", "A");
+          s.note = "Two empty lists: first <code>a</code>&hellip;";
+        },
+        (s) => {
+          s.line = 4;
+          s.objs.push({ id: "B", type: "list", rc: 1, at: [1, 1], addr: "0x7f1c3e80", items: [], hot: true });
+          bind(s, "g", "b", "B");
+          s.note = "&hellip;then <code>b</code>. Each has a count of 1.";
+        },
+        (s) => {
+          s.line = 5;
+          obj(s, "A").items.push({ to: "B" });
+          obj(s, "B").rc = 2;
+          s.wires = { "A:0>B": "hot" };
+          s.note = "<code>a.append(b)</code> stores a reference to B inside A, so B&rsquo;s count goes to 2.";
+        },
+        (s) => {
+          s.line = 6;
+          obj(s, "B").items.push({ to: "A" });
+          obj(s, "A").rc = 2;
+          s.wires = { "B:0>A": "hot" };
+          s.note = "B now refers back to A. That&rsquo;s a <b>reference cycle</b>.";
+        },
+        (s) => {
+          s.line = 7;
+          unbind(s, "g", "a");
+          unbind(s, "g", "b");
+          for (const id of ["A", "B"]) {
+            const o = obj(s, id);
+            o.rc = 1;
+            o.dim = true;
+            o.tag = "unreachable, count still 1";
+          }
+          s.note =
+            "<code>del a, b</code> removes both names. Each list still holds a reference to the other, so neither count reaches 0. Counting alone would leak them forever.";
+        },
+        (s) => {
+          s.line = 8;
+          s.gc = 1;
+          for (const id of ["A", "B"]) {
+            const o = obj(s, id);
+            o.gcr = 1;
+            delete o.tag;
+          }
+          s.note =
+            "<code>gc.collect()</code> examines the containers it tracks. Step 1: copy each object&rsquo;s reference count into a scratch field, <code>gc_refs</code>.";
+        },
+        (s) => {
+          s.gc = 2;
+          obj(s, "A").gcr = 0;
+          obj(s, "B").gcr = 0;
+          s.wires = { "A:0>B": "cut", "B:0>A": "cut" };
+          s.note =
+            "Step 2: for every reference <b>between</b> tracked objects, subtract 1 from the target&rsquo;s <code>gc_refs</code>. Whatever remains counts references from outside the group.";
+        },
+        (s) => {
+          s.gc = 3;
+          s.wires = { "A:0>B": "cut", "B:0>A": "cut" };
+          for (const id of ["A", "B"]) {
+            obj(s, id).mark = "garbage";
+          }
+          s.note =
+            "Step 3: nothing outside refers to either list, and neither is reachable from an object that is referred to from outside. Both are <b>unreachable</b>.";
+        },
+        (s) => {
+          s.gc = 4;
+          drop(s, "A");
+          drop(s, "B");
+          s.out = ["2"];
+          s.note =
+            "Step 4: the cycle is freed. <code>gc.collect()</code> returns how many unreachable objects it found, so the script prints <b>2</b>.";
+        },
+      ],
+    },
+    {
+      label: "Cached small ints",
+      short: "Small ints",
+      sub: "is versus ==",
+      code: 'x = int("256")\ny = int("256")\nm = int("1000")\nn = int("1000")\nprint(x is y, m is n, m == n)',
+      intro:
+        "<code>is</code> asks whether two names refer to the <b>same object</b>; <code>==</code> asks whether the values are equal. Cached small ints make the difference easy to miss.",
+      aside:
+        "Why <code>int(\"1000\")</code> and not the literal <code>1000</code>? The compiler may merge equal constants in one file, so <code>m = 1000; n = 1000</code> can make <code>m is n</code> True. Identity of equal values is an implementation detail: never rely on it.",
+      init: (s) => {
+        s.objs.push({ id: "I256", type: "int", rc: "imm", at: [0, 0], addr: "0x7f1c0a90", val: "256", tag: "preallocated at start-up", dim: true });
+      },
+      steps: [
+        (s) => {
+          s.line = 1;
+          const o = obj(s, "I256");
+          delete o.dim;
+          delete o.tag;
+          bind(s, "g", "x", "I256");
+          s.note =
+            "<code>int(\"256\")</code> checks the small-int cache (-5 to 256) and returns the object that already exists. Nothing new is allocated.";
+        },
+        (s) => {
+          s.line = 2;
+          bind(s, "g", "y", "I256");
+          s.wires = { "g:y>I256": "hot" };
+          s.note = "Same again: <code>y</code> gets the very same object.";
+        },
+        (s) => {
+          s.line = 3;
+          s.objs.push({ id: "M1", type: "int", rc: 1, at: [0, 1], addr: "0x7f1c4f10", val: "1000", hot: true });
+          bind(s, "g", "m", "M1");
+          s.note = "1000 is outside the cache, so <code>int()</code> allocates a brand-new int object.";
+        },
+        (s) => {
+          s.line = 4;
+          s.objs.push({ id: "M2", type: "int", rc: 1, at: [0, 2], addr: "0x7f1c4f70", val: "1000", hot: true });
+          bind(s, "g", "n", "M2");
+          s.note = "Another call, another new object: equal value, different identity.";
+        },
+        (s) => {
+          s.line = 5;
+          s.wires = { "g:x>I256": "hot", "g:y>I256": "hot" };
+          s.out = ["True False True"];
+          s.note =
+            "<code>x is y</code> is <b>True</b> (one object), <code>m is n</code> is <b>False</b> (two objects), <code>m == n</code> is <b>True</b> (equal values). Use <code>is</code> only for singletons such as <code>None</code>.";
+        },
+      ],
+    },
+  ];
+
+  SCENARIOS.forEach((sc) => {
+    const init = initial(sc.intro);
+    init.cols = sc.cols || 1;
+    if (sc.init) {
+      sc.init(init);
+    }
+    const steps = sc.steps.map((fn) => (s) => {
+      clearMarks(s);
+      fn(s);
+    });
+    sc.states = buildStates(init, steps);
+  });
+
+  /* ---------- stepper ---------- */
+  const stage = $("#lab");
+  const mem = MemView($("#mem"), { refc: true, cols: 2, emptyHeap: "Nothing on the heap yet" });
+  const gcSteps = $$("#gcsteps li");
+
+  function render(st, ctx) {
+    $("#gcsteps").hidden = !st.gc;
+    gcSteps.forEach((li, i) => {
+      li.classList.toggle("is-done", i + 1 < st.gc);
+      li.classList.toggle("is-cur", i + 1 === st.gc);
+    });
+    return mem.render(st, ctx);
+  }
+
+  const player = Player({ dock: $("#dock"), root: stage, render, codeEl: $("#code"), outEl: $("#out") });
+  const seg = $("#scSeg");
+  seg.innerHTML = SCENARIOS.map(
+    (sc, i) => `<button type="button" data-i="${i}" aria-pressed="${i === 0}">${esc(sc.short)}</button>`,
+  ).join("");
+
+  function loadScenario(i) {
+    const sc = SCENARIOS[i];
+    $("#scTitle").textContent = sc.label;
+    $("#aside").innerHTML = sc.aside;
+    $$("button", seg).forEach((b) => b.setAttribute("aria-pressed", String(Number(b.dataset.i) === i)));
+    player.load(sc.states, { code: sc.code, lang: "py" });
+    route.set(i);
+  }
+
+  seg.addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) {
+      loadScenario(Number(b.dataset.i));
+    }
+  });
+
+  /* ---------- pymalloc widget ---------- */
+  const KINDS = [
+    { id: "int", label: "int 1000", size: 28, cls: 32, color: "blue" },
+    { id: "float", label: "float 2.5", size: 24, cls: 32, color: "teal" },
+    { id: "str", label: "str 'hi'", size: 43, cls: 48, color: "green" },
+    { id: "list", label: "empty list", size: 56, cls: 64, color: "orange" },
+    { id: "tuple", label: "tuple (1, 2)", size: 56, cls: 64, color: "yellow" },
+    { id: "dict", label: "empty dict", size: 64, cls: 64, color: "red" },
+  ];
+  const KIND = Object.fromEntries(KINDS.map((k) => [k.id, k]));
+  const ARENAS = 2;
+  const POOLS = 6;
+  const BLOCKS = 10;
+  const pm = {
+    seq: 0,
+    arenas: [],
+    big: [],
+  };
+
+  function resetPm() {
+    pm.arenas = Array.from({ length: ARENAS }, (_, a) => ({
+      held: false,
+      everHeld: false,
+      pools: Array.from({ length: POOLS }, (_, p) => ({ id: `${a}-${p}`, cls: 0, blocks: Array(BLOCKS).fill(null) })),
+    }));
+    pm.big = [];
+  }
+
+  const usedPools = (a) => a.pools.filter((p) => p.cls).length;
+  const live = () => pm.arenas.flatMap((a) => a.pools.flatMap((p) => p.blocks.filter(Boolean)));
+
+  function allocOne(kind) {
+    const pools = pm.arenas.filter((a) => a.held).flatMap((a) => a.pools);
+    let pool = pools.find((p) => p.cls === kind.cls && p.blocks.some((b) => !b));
+    let fresh = false;
+    if (!pool) {
+      const held = pm.arenas.filter((a) => a.held).sort((a, b) => usedPools(b) - usedPools(a));
+      for (const a of held) {
+        pool = a.pools.find((p) => !p.cls);
+        if (pool) {
+          break;
+        }
+      }
+      if (!pool) {
+        const a = pm.arenas.find((x) => !x.held);
+        if (!a) {
+          return "full";
+        }
+        a.held = true;
+        a.everHeld = true;
+        fresh = true;
+        pool = a.pools[0];
+      }
+      pool.cls = kind.cls;
+    }
+    const i = pool.blocks.findIndex((b) => !b);
+    pm.seq += 1;
+    pool.blocks[i] = { id: pm.seq, kind: kind.id };
+    return fresh ? "arena" : "ok";
+  }
+
+  function freeBlock(id) {
+    for (const a of pm.arenas) {
+      for (const p of a.pools) {
+        const i = p.blocks.findIndex((b) => b && b.id === id);
+        if (i >= 0) {
+          p.blocks[i] = null;
+          if (!p.blocks.some(Boolean)) {
+            p.cls = 0;
+          }
+          if (!a.pools.some((x) => x.cls)) {
+            a.held = false;
+          }
+          return;
+        }
+      }
+    }
+  }
+
+  function pick() {
+    const weights = [3, 2, 3, 2, 2, 2];
+    let r = Math.random() * weights.reduce((x, y) => x + y, 0);
+    for (let i = 0; i < KINDS.length; i += 1) {
+      r -= weights[i];
+      if (r <= 0) {
+        return KINDS[i];
+      }
+    }
+    return KINDS[0];
+  }
+
+  function paintPm() {
+    $("#arenas").innerHTML = pm.arenas
+      .map((a, ai) => {
+        let status = "not allocated yet";
+        if (a.held) {
+          status = "held from the OS";
+        } else if (a.everHeld) {
+          status = "returned to the OS";
+        }
+        const pools = a.pools
+          .map((p) => {
+            const used = p.blocks.filter(Boolean).length;
+            const blocks = p.blocks
+              .map((b) =>
+                b
+                  ? `<span class="blk on" data-k="b${b.id}" data-exit="poof" style="--c:var(--${KIND[b.kind].color})" title="${esc(KIND[b.kind].label)}"></span>`
+                  : '<span class="blk"></span>',
+              )
+              .join("");
+            return `<div class="pool${p.cls ? " is-used" : ""}"><div class="pool-h"><span>${p.cls ? `${p.cls} B blocks` : "empty pool"}</span><span>${used}/${BLOCKS}</span></div><div class="blocks">${blocks}</div></div>`;
+          })
+          .join("");
+        return `<div class="arena${a.held ? "" : " is-off"}"><div class="arena-h">Arena ${ai + 1}<small>${status}</small></div><div class="pools">${pools}</div></div>`;
+      })
+      .join("");
+    $("#sysList").innerHTML = pm.big.length
+      ? pm.big
+          .map((b) => `<span class="big" data-k="big${b}" data-exit="poof" style="--c:var(--purple)">bytes<br>1057 B</span>`)
+          .join("")
+      : '<span class="empty">No large objects</span>';
+    const poolsUsed = pm.arenas.reduce((n, a) => n + usedPools(a), 0);
+    const held = pm.arenas.filter((a) => a.held).length;
+    $("#stats").innerHTML = [
+      [live().length, "small objects alive"],
+      [`${poolsUsed}/${ARENAS * POOLS}`, "pools in use"],
+      [`${held}/${ARENAS}`, "arenas held from the OS"],
+      [pm.big.length, "large objects via malloc"],
+    ]
+      .map(([v, l]) => `<span><b>${v}</b>${l}</span>`)
+      .join("");
+  }
+
+  function pmAction(kind) {
+    const root = $("#pmStage");
+    const snap = motionOk() ? Flip.snap(root) : null;
+    let note = "";
+    if (kind === "alloc") {
+      let arena = false;
+      let full = false;
+      for (let i = 0; i < 10; i += 1) {
+        const r = allocOne(pick());
+        if (r === "full") {
+          full = true;
+          break;
+        }
+        if (r === "arena") {
+          arena = true;
+        }
+      }
+      if (full) {
+        note = "No free blocks left in this demo. Free some objects first.";
+      } else if (arena && pm.arenas.filter((a) => a.held).length > 1) {
+        note = "The first arena ran out of empty pools, so pymalloc asked the operating system for <b>another arena</b>.";
+      } else if (arena) {
+        note =
+          "The first allocation claimed an <b>arena</b> from the OS. Each new size class takes an empty pool, and objects of the same class share a pool.";
+      } else {
+        note = "New objects fill free blocks in pools of their own size class; a new pool is only claimed when those are full.";
+      }
+    } else if (kind === "big") {
+      pm.big.push(++pm.seq);
+      note = "<code>bytes(1024)</code> takes 1057 bytes. Anything over 512 bytes bypasses pymalloc and goes straight to the system allocator.";
+    } else if (kind === "half") {
+      const all = live();
+      const n = Math.floor(all.length / 2);
+      all
+        .sort(() => Math.random() - 0.5)
+        .slice(0, n)
+        .forEach((b) => freeBlock(b.id));
+      const partly = pm.arenas.flatMap((a) => a.pools).filter((p) => p.cls).length;
+      note = all.length
+        ? `${n} objects freed, yet ${partly} pools still hold at least one live object, so no arena can go back to the OS. The process keeps its memory: that&rsquo;s <b>fragmentation</b>.`
+        : "Nothing to free yet. Allocate some objects first.";
+    } else if (kind === "one") {
+      const all = live();
+      if (all.length > 1) {
+        const keep = all[all.length - 1];
+        all.filter((b) => b.id !== keep.id).forEach((b) => freeBlock(b.id));
+        pm.big = [];
+        note = `Only one <b>${esc(KIND[keep.kind].label)}</b> is left, but it pins its whole arena: the arena stays held until every one of its pools is empty.`;
+      } else {
+        note = "There is at most one object alive already.";
+      }
+    } else if (kind === "reset") {
+      live().forEach((b) => freeBlock(b.id));
+      pm.big = [];
+      note =
+        "Everything is free. Empty pools can be reused by any size class, and an arena whose pools are all empty is returned to the OS.";
+    }
+    $("#pmNote").innerHTML = note;
+    paintPm();
+    if (snap) {
+      Flip.play(root, snap, { dur: 520 });
+    }
+  }
+
+  $("#kinds").innerHTML = KINDS.map(
+    (k) => `<span class="kind" style="--c:var(--${k.color})"><i></i><b>${esc(k.label)}</b>${k.size} B, ${k.cls} B class</span>`,
+  ).join("");
+  $("#pmStage").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-pm]");
+    if (b) {
+      pmAction(b.dataset.pm);
+    }
+  });
+  resetPm();
+  paintPm();
+  $("#pmNote").innerHTML = "Press <b>Allocate 10 objects</b> to start. Each colour is a type; each small square is one block.";
+
+  /* ---------- route map ---------- */
+  const pmSection = $("#pymalloc");
+  const route = routeMap(
+    $("#route"),
+    [
+      ...SCENARIOS.map((sc) => ({ label: sc.label, sub: sc.sub })),
+      { label: "Arenas and pools", sub: "where objects live" },
+    ],
+    {
+      onPick: (i) => {
+        if (i < SCENARIOS.length) {
+          loadScenario(i);
+          const top = stage.getBoundingClientRect().top;
+          if (top > window.innerHeight * 0.55 || top < -40) {
+            scrollToEl(stage);
+          }
+        } else {
+          scrollToEl(pmSection);
+        }
+      },
+    },
+  );
+
+  loadScenario(0);
+})();
+</script>
+</body>
+</html>

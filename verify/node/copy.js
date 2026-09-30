@@ -1,0 +1,12 @@
+const a = 10;
+let b = a;
+b = 20;
+const user = { name: "Ana", tags: ["dev"] };
+const admin = user;
+admin.name = "Bob";
+const clone = { ...user };
+clone.name = "Cleo";
+clone.tags.push("ops");
+const deep = structuredClone(user);
+deep.tags.push("qa");
+console.log(a, b, user.name, clone.tags, deep.tags);

@@ -1,0 +1,1618 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<!--@HEAD@-->
+<title>JavaScript types, sorted at the junction</title>
+<style>
+/*@SHARED_CSS@*/
+/*@MEM_CSS@*/
+body {
+  --line: var(--orange);
+}
+/* typeof junction */
+.jx-wrap {
+  position: relative;
+  display: grid;
+  gap: 18px;
+}
+.jx-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  z-index: 0;
+}
+.jx-svg .br {
+  fill: none;
+  stroke-width: 7;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+.jx-svg .trunk {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 9;
+  stroke-linecap: round;
+}
+.jx-svg .origin {
+  fill: var(--surface);
+  stroke: var(--ink);
+  stroke-width: 5;
+}
+.platform {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 12px;
+  border-radius: var(--radius-m);
+  background: var(--surface-2);
+  border: 1px solid var(--rule-2);
+}
+.vbtn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  font: 650 14px/1.2 var(--mono);
+  cursor: pointer;
+  transition:
+    border-color 0.3s,
+    background-color 0.3s;
+}
+.vbtn:hover {
+  border-color: var(--ink-3);
+}
+.vbtn.sent {
+  border-color: var(--c);
+  background: color-mix(in srgb, var(--c) 10%, var(--surface));
+}
+.vbtn[aria-pressed="true"] {
+  border-color: var(--line);
+  background: var(--line);
+  color: var(--surface);
+}
+.junction {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(64px, 0.85fr) minmax(0, 1.5fr);
+}
+.dests {
+  display: grid;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.dest {
+  display: grid;
+  grid-template-columns: 26px auto minmax(0, 1fr);
+  align-items: center;
+  gap: 10px;
+  height: 44px;
+}
+.dmk {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 6px solid var(--c);
+}
+.dname {
+  font: 750 15px var(--mono);
+  color: var(--ink);
+  min-width: 90px;
+}
+.arrivals {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  padding: 3px 0;
+}
+.arr {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  height: 26px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1.5px solid var(--c);
+  background: color-mix(in srgb, var(--c) 12%, var(--surface));
+  font: 650 12.5px var(--mono);
+  white-space: nowrap;
+}
+.arr.is-new {
+  animation: arrIn 0.45s cubic-bezier(0.3, 1.4, 0.5, 1);
+}
+@keyframes arrIn {
+  from {
+    transform: scale(0.4);
+    opacity: 0;
+  }
+}
+.jtok {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: var(--c);
+  color: var(--surface);
+  font: 700 13.5px var(--mono);
+  white-space: nowrap;
+  box-shadow: 0 6px 18px color-mix(in srgb, var(--c) 40%, transparent);
+  pointer-events: none;
+}
+.jx-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+.jx-note {
+  flex: 1 1 360px;
+  margin: 0;
+  min-height: 3em;
+  font-size: 15.5px;
+}
+.jx-btns {
+  display: flex;
+  gap: 8px;
+}
+@media (max-width: 560px) {
+  .dname {
+    min-width: 72px;
+    font-size: 13.5px;
+  }
+  .junction {
+    grid-template-columns: 58px minmax(0, 1fr);
+  }
+}
+
+/* flip cards */
+.fcards {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+@media (max-width: 1080px) {
+  .fcards {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+@media (max-width: 560px) {
+  .fcards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .fcard {
+    height: 225px;
+  }
+}
+.fcard {
+  position: relative;
+  height: 250px;
+  padding: 0;
+  border: 0;
+  background: none;
+  perspective: 1000px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--ink);
+  font: inherit;
+}
+.fc-in {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transition: transform 0.65s cubic-bezier(0.3, 0.7, 0.3, 1);
+}
+.fcard[aria-pressed="true"] .fc-in {
+  transform: rotateY(180deg);
+}
+.fc-face {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  border: 2px solid var(--c);
+  background: var(--surface);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  overflow: hidden;
+}
+.fc-back {
+  transform: rotateY(180deg);
+  background: color-mix(in srgb, var(--c) 9%, var(--surface));
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--ink-2);
+}
+.fc-back b:first-child {
+  color: var(--ink);
+  font-size: 13px;
+}
+.fc-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 20px;
+  font-weight: 850;
+}
+.fc-top .bul {
+  min-width: 30px;
+  height: 30px;
+  font-size: 12px;
+}
+.fc-typeof {
+  font: 600 13.5px var(--mono);
+  color: var(--ink-2);
+}
+.fc-typeof b {
+  color: var(--c);
+}
+.fc-ex {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.fc-ex code {
+  padding: 2px 8px;
+  border-radius: 7px;
+  background: var(--inset);
+  font-size: 13px;
+}
+.fc-kind {
+  margin-top: auto;
+  font-size: 13.5px;
+  color: var(--ink-2);
+}
+.fc-hint {
+  font-size: 12px;
+  font-weight: 750;
+  color: var(--c);
+}
+
+/* copy or share */
+.cp-grid {
+  display: grid;
+  gap: 16px;
+  grid-template-columns: minmax(250px, 0.9fr) minmax(0, 2.1fr);
+  grid-template-areas: "left mem";
+  align-items: start;
+}
+.cp-left {
+  grid-area: left;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.cp-mem {
+  grid-area: mem;
+}
+@media (max-width: 960px) {
+  .cp-grid {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "code" "mem" "out";
+  }
+  .cp-left {
+    display: contents;
+  }
+  .cp-left .p-code {
+    grid-area: code;
+  }
+  .cp-left .p-out {
+    grid-area: out;
+  }
+}
+
+/* equality lab */
+.eq-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 1000px) {
+  .eq-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+.picks {
+  display: grid;
+  gap: 10px;
+}
+.vals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.vals .vbtn {
+  min-height: 30px;
+  padding: 2px 10px;
+  font-size: 13px;
+}
+.ctl-l {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: var(--ink-2);
+}
+.eq-res {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 14px;
+}
+.res {
+  display: grid;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 2px solid var(--rule);
+  background: var(--surface);
+}
+.res code {
+  font-size: 12.5px;
+  color: var(--ink-2);
+  overflow-wrap: anywhere;
+}
+.res b {
+  font: 800 22px var(--mono);
+}
+.res.t {
+  border-color: var(--green);
+  background: color-mix(in srgb, var(--green) 9%, var(--surface));
+}
+.res.t b {
+  color: var(--green);
+}
+.res.f b {
+  color: var(--ink-3);
+}
+.trace {
+  counter-reset: s;
+  display: grid;
+  gap: 0;
+  margin: 16px 0 0;
+  padding: 0;
+  list-style: none;
+}
+.trace li {
+  counter-increment: s;
+  position: relative;
+  display: grid;
+  gap: 4px;
+  padding: 0 0 14px 44px;
+  animation: trIn 0.4s both;
+  animation-delay: calc(var(--i) * 160ms);
+}
+.trace li::before {
+  content: counter(s);
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 5px solid var(--line);
+  font: 850 12px/1 var(--font);
+}
+.trace li:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 11px;
+  top: 28px;
+  bottom: 0;
+  width: 6px;
+  background: var(--line);
+}
+.trace .tr-now {
+  width: fit-content;
+  padding: 2px 9px;
+  border-radius: 7px;
+  background: var(--inset);
+  font: 700 14px var(--mono);
+}
+.trace .tr-why {
+  font-size: 14.5px;
+  color: var(--ink-2);
+}
+.trace li.final::before {
+  content: "=";
+  background: var(--line);
+  color: var(--surface);
+}
+.trace li.final .tr-now {
+  background: var(--line);
+  color: var(--surface);
+}
+@keyframes trIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+.mx-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.mx-wrap {
+  overflow-x: auto;
+}
+.mx {
+  border-collapse: separate;
+  border-spacing: 2px;
+  font: 600 11.5px var(--mono);
+}
+.mx th {
+  color: var(--ink-2);
+  font-weight: 650;
+  white-space: nowrap;
+}
+.mx thead th {
+  height: 74px;
+  vertical-align: bottom;
+  padding: 0 0 4px;
+}
+.mx thead th span {
+  display: inline-block;
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+}
+.mx tbody th {
+  padding-right: 6px;
+  text-align: right;
+}
+.mx td {
+  padding: 0;
+}
+.mx td button {
+  display: block;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 5px;
+  background: var(--inset);
+  cursor: pointer;
+}
+.mx td button.y {
+  background: var(--line);
+}
+.mx td button.sel {
+  outline: 3px solid var(--ink);
+  outline-offset: 1px;
+}
+
+/* truthy sorter */
+.pool {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  min-height: 44px;
+  padding: 12px;
+  border-radius: var(--radius-m);
+  background: var(--surface-2);
+  border: 1px solid var(--rule-2);
+}
+.bins {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin-top: 14px;
+}
+.bin {
+  display: grid;
+  align-content: start;
+  gap: 10px;
+  min-height: 150px;
+  padding: 12px;
+  border-radius: 16px;
+  border: 2.5px dashed var(--c);
+  background: color-mix(in srgb, var(--c) 6%, var(--surface));
+  color: var(--ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.bin:hover,
+.bin.ready {
+  border-style: solid;
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c) 18%, transparent);
+}
+.bin-h {
+  font-weight: 850;
+  font-size: 18px;
+  color: var(--c);
+}
+.bin-in {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.tchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 0 11px;
+  border-radius: 999px;
+  border: 2px solid var(--rule);
+  background: var(--surface);
+  font: 650 13.5px var(--mono);
+  white-space: nowrap;
+}
+.tchip.ok {
+  border-color: var(--green);
+}
+.tchip.miss {
+  border-color: var(--red);
+  border-style: dashed;
+}
+.tf-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 14px;
+}
+.tf-note {
+  flex: 1 1 320px;
+  margin: 0;
+  min-height: 3em;
+  font-size: 15.5px;
+}
+
+/* float bits */
+.fp-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px 18px;
+}
+.fp-in {
+  display: grid;
+  gap: 6px;
+}
+.fp-in input {
+  width: 230px;
+  max-width: 100%;
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 10px;
+  border: 2px solid var(--rule);
+  background: var(--surface);
+  color: var(--ink);
+  font: 650 16px var(--mono);
+}
+.fp-in input:focus {
+  outline: none;
+  border-color: var(--line);
+}
+.fp-err {
+  color: var(--red);
+  font-size: 13px;
+  min-height: 1.2em;
+}
+.presets {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  flex: 1 1 400px;
+}
+.bits {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 14px;
+  margin-top: 18px;
+}
+.bgrp {
+  display: grid;
+  gap: 5px;
+}
+.bgrp-h {
+  font-size: 12.5px;
+  font-weight: 750;
+  color: var(--c);
+}
+.bcells {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.bit {
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 26px;
+  padding: 0;
+  border-radius: 4px;
+  border: 1.5px solid color-mix(in srgb, var(--c) 45%, var(--rule));
+  background: var(--surface);
+  color: var(--ink-3);
+  font: 700 12px var(--mono);
+  cursor: pointer;
+}
+.bit.on {
+  background: var(--c);
+  border-color: var(--c);
+  color: var(--surface);
+}
+.fp-read {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: 8px 16px;
+  margin: 20px 0 0;
+}
+.fp-read dt {
+  font-size: 13px;
+  font-weight: 750;
+  color: var(--ink-2);
+  padding-top: 2px;
+}
+.fp-read dd {
+  margin: 0;
+  font: 600 14.5px/1.5 var(--mono);
+  overflow-wrap: anywhere;
+}
+.fp-read dd.long {
+  max-height: 7.5em;
+  overflow-y: auto;
+}
+.fp-read .k {
+  color: var(--c);
+  font-weight: 800;
+}
+.fp-note {
+  margin: 16px 0 0;
+  font-size: 15.5px;
+  min-height: 1.5em;
+}
+@media (max-width: 560px) {
+  .fp-read {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2px;
+  }
+  .fp-read dd {
+    margin-bottom: 8px;
+  }
+}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <header class="hero">
+    <h1>JavaScript types, sorted at the junction</h1>
+    <p class="lede">Every JavaScript value is one of seven primitive types or an object. Send values through the <code>typeof</code> junction, flip the cards to see how V8 stores them, trace exactly what <code>==</code> does, and take a number apart bit by bit.</p>
+    <nav class="route" id="route" aria-label="Sections"></nav>
+  </header>
+
+  <section class="stage" id="jx" aria-label="typeof junction">
+    <div class="stage-top">
+      <h2>The typeof junction</h2>
+      <span class="status" id="jxStatus" style="--c: var(--orange)">0 of 15 sent</span>
+    </div>
+    <div class="stage-body">
+      <div class="jx-wrap" id="jxWrap">
+        <svg class="jx-svg" id="jxSvg" aria-hidden="true"></svg>
+        <div class="platform" id="platform" role="group" aria-label="Values to send"></div>
+        <div class="junction">
+          <div class="jx-track" aria-hidden="true"></div>
+          <ol class="dests" id="dests" aria-label="typeof results"></ol>
+        </div>
+      </div>
+      <div class="jx-foot">
+        <p class="jx-note" id="jxNote" aria-live="polite">Pick a value to send it through <code>typeof</code>. There are only eight possible answers.</p>
+        <div class="jx-btns">
+          <button type="button" class="btn primary" id="jxAll">Send all</button>
+          <button type="button" class="btn" id="jxClear">Clear</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="cards">
+    <div class="sec-h"><h2>Seven primitives and one object type</h2></div>
+    <p class="intro">Primitives are immutable and compared by value; objects are mutable and compared by reference. Flip a card to see how V8 represents that type.</p>
+    <div class="fcards" id="fcards"></div>
+    <p class="callout" style="--c: var(--orange); margin-top: 20px"><b>Stack or heap?</b> You&rsquo;ll often read that primitives live on the stack and objects on the heap. In V8 almost everything lives on the heap, and a variable holds a pointer to it; only small integers (Smis) fit inside the slot itself. What really separates primitives is that they can&rsquo;t be changed, so sharing one is invisible.</p>
+  </section>
+
+  <section class="sec" id="copy">
+    <div class="sec-h"><h2>Copy or share?</h2></div>
+    <p class="intro">Assigning a primitive copies it. Assigning an object copies a reference. Spread copies one level deep; <code>structuredClone</code> copies all the way down.</p>
+    <div class="stage" id="cpStage">
+      <div class="stage-top">
+        <h2>Primitives, references and clones</h2>
+        <span class="status" style="--c: var(--orange)">Node.js 17+</span>
+      </div>
+      <div class="stage-body cp-grid">
+        <div class="cp-left">
+          <div class="pane p-code">
+            <div class="pane-h">copy.js</div>
+            <ol class="code" id="cpCode" aria-label="Source code"></ol>
+          </div>
+          <div class="pane p-out board">
+            <div class="pane-h">Output</div>
+            <ol class="out" id="cpOut" aria-live="polite"></ol>
+          </div>
+        </div>
+        <div class="pane cp-mem">
+          <div class="pane-h">Variables and heap <small>arrows are references</small></div>
+          <div id="cpMem"></div>
+        </div>
+      </div>
+      <div class="dock" id="cpDock"></div>
+    </div>
+  </section>
+
+  <section class="sec" id="eq">
+    <div class="sec-h"><h2>What == actually does</h2></div>
+    <p class="intro"><code>===</code> never converts. <code>==</code> follows a fixed list of conversion rules from the spec, one step at a time. Pick two values and follow the trace, or click any square in the grid.</p>
+    <div class="stage" id="eqStage">
+      <div class="stage-top">
+        <h2 id="eqTitle">[] == false</h2>
+        <span class="status" id="eqStatus" style="--c: var(--orange)"></span>
+      </div>
+      <div class="stage-body eq-grid">
+        <div>
+          <div class="picks">
+            <span class="ctl-l" id="eqLl">Left value</span>
+            <div class="vals" id="eqL" role="group" aria-labelledby="eqLl"></div>
+            <span class="ctl-l" id="eqRl">Right value</span>
+            <div class="vals" id="eqR" role="group" aria-labelledby="eqRl"></div>
+          </div>
+          <div class="eq-res" id="eqRes"></div>
+          <ol class="trace" id="eqTrace"></ol>
+        </div>
+        <div class="pane">
+          <div class="mx-head">
+            <span class="pane-h" style="margin: 0">All 225 pairs <small>filled means true</small></span>
+            <div class="seg" id="mxSeg" role="group" aria-label="Operator">
+              <button type="button" data-op="==" aria-pressed="true">==</button>
+              <button type="button" data-op="===" aria-pressed="false">===</button>
+              <button type="button" data-op="is" aria-pressed="false">Object.is</button>
+            </div>
+          </div>
+          <div class="mx-wrap"><table class="mx" id="eqMx"></table></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="truthy">
+    <div class="sec-h"><h2>Truthy or falsy?</h2></div>
+    <p class="intro">An <code>if</code> converts its condition with <code>Boolean()</code>. Exactly eight values are falsy; everything else, including some surprising ones, is truthy. Pick a value, then pick the bin you think it belongs in.</p>
+    <div class="stage" id="tfStage">
+      <div class="stage-top">
+        <h2>Sort the values</h2>
+        <span class="status" id="tfScore" style="--c: var(--orange)">0 of 16 sorted</span>
+      </div>
+      <div class="stage-body">
+        <div class="pool" id="tfPool" role="group" aria-label="Values to sort"></div>
+        <div class="bins">
+          <button type="button" class="bin" data-bin="1" style="--c: var(--green)"><span class="bin-h">Truthy</span><span class="bin-in" id="tfT"></span></button>
+          <button type="button" class="bin" data-bin="0" style="--c: var(--red)"><span class="bin-h">Falsy</span><span class="bin-in" id="tfF"></span></button>
+        </div>
+        <div class="tf-foot">
+          <p class="tf-note" id="tfNote" aria-live="polite">Pick a value first.</p>
+          <button type="button" class="btn" id="tfReset">Start over</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="bits">
+    <div class="sec-h"><h2>Inside a number</h2></div>
+    <p class="intro">A JavaScript <code>number</code> is an IEEE 754 double: 1 sign bit, 11 exponent bits and 52 fraction bits. Type a value, pick a preset, or flip any bit and watch the number change.</p>
+    <div class="stage" id="fpStage">
+      <div class="stage-top">
+        <h2 id="fpTitle">0.1</h2>
+        <span class="status" id="fpKind" style="--c: var(--blue)">normal number</span>
+      </div>
+      <div class="stage-body">
+        <div class="fp-top">
+          <div class="fp-in">
+            <label class="ctl-l" for="fpIn">Number literal</label>
+            <input id="fpIn" value="0.1" spellcheck="false" autocomplete="off" inputmode="decimal">
+            <span class="fp-err" id="fpErr" aria-live="polite"></span>
+          </div>
+          <div class="presets" id="fpPre" role="group" aria-label="Presets"></div>
+        </div>
+        <div class="bits" id="fpBits"></div>
+        <dl class="fp-read" id="fpRead"></dl>
+        <p class="fp-note" id="fpNote"></p>
+      </div>
+    </div>
+  </section>
+
+  <p class="foot">typeof results, conversions and truthiness follow the ECMAScript specification and match V8 in Node.js and Chrome. The copy example prints <code>10 20 Bob [ 'dev', 'ops' ] [ 'dev', 'ops', 'qa' ]</code> in Node.js 22.</p>
+</main>
+<script>
+(() => {
+  "use strict";
+//@SHARED_JS@
+//@MEM_JS@
+
+  const tween = (dur, fn) =>
+    new Promise((resolve) => {
+      const t0 = performance.now();
+      const step = (now) => {
+        const k = clamp((now - t0) / dur, 0, 1);
+        fn(k);
+        if (k < 1) {
+          requestAnimationFrame(step);
+        } else {
+          resolve();
+        }
+      };
+      requestAnimationFrame(step);
+    });
+  const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - (-2 * k + 2) ** 2 / 2);
+
+  /* ---------- 1. typeof junction ---------- */
+  const DEST = [
+    { t: "undefined", c: "slate" },
+    { t: "boolean", c: "purple" },
+    { t: "number", c: "blue" },
+    { t: "bigint", c: "teal" },
+    { t: "string", c: "green" },
+    { t: "symbol", c: "pink" },
+    { t: "object", c: "orange" },
+    { t: "function", c: "yellow" },
+  ];
+  const JV = [
+    ["undefined", "undefined", "The value of anything that was declared but never assigned."],
+    ["true", "boolean", "One of exactly two booleans."],
+    ["42", "number", "Every JavaScript number is a 64-bit float. V8 stores small integers faster, but the type is the same."],
+    ["3.14", "number", "Same type as 42: JavaScript has no separate integer type."],
+    ["NaN", "number", "NaN is a number: the IEEE 754 value for a result that isn&rsquo;t a real number."],
+    ["10n", "bigint", "A BigInt: integers of any size, written with an <code>n</code> suffix."],
+    ['"hi"', "string", "Strings are immutable primitives."],
+    ['Symbol("id")', "symbol", "Every <code>Symbol()</code> call creates a new, unique value, often used as a property key."],
+    ["null", "object", "<b>The famous quirk.</b> <code>typeof null</code> is \"object\", a bug from the first JavaScript engine kept for compatibility. Test with <code>value === null</code>."],
+    ["{ a: 1 }", "object", "A plain object."],
+    ["[1, 2]", "object", "Arrays are objects. Tell them apart with <code>Array.isArray(value)</code>."],
+    ["new Date()", "object", "Dates, maps, sets and regular expressions are all plain <code>\"object\"</code> to typeof."],
+    ['Buffer.from("hi")', "object", "Node&rsquo;s <code>Buffer</code> is a <code>Uint8Array</code> subclass, so it&rsquo;s an object. Use <code>Buffer.isBuffer(value)</code>."],
+    ["() => {}", "function", "Functions are callable objects, and <code>typeof</code> gives them their own answer."],
+    ["class A {}", "function", "A class is a special kind of function."],
+  ].map(([src, t, note]) => ({ src, t, note }));
+
+  const jx = { paths: [], pts: [], origin: [0, 0], arrived: DEST.map(() => []), sent: new Set() };
+  const wrap = $("#jxWrap");
+  const svg = $("#jxSvg");
+  $("#platform").innerHTML = JV.map(
+    (v, i) => `<button type="button" class="vbtn" data-jv="${i}">${esc(v.src)}</button>`,
+  ).join("");
+  $("#dests").innerHTML = DEST.map(
+    (d, i) =>
+      `<li class="dest" style="--c:var(--${d.c})"><span class="dmk" data-mk="${i}"></span><span class="dname">${d.t}</span><span class="arrivals" data-arr="${i}"></span></li>`,
+  ).join("");
+
+  function layoutJx() {
+    const box = wrap.getBoundingClientRect();
+    if (!box.width) {
+      return;
+    }
+    const tb = $(".jx-track", wrap).getBoundingClientRect();
+    const mk = $$(".dmk", wrap).map((m) => {
+      const r = m.getBoundingClientRect();
+      return [r.left - box.left + r.width / 2, r.top - box.top + r.height / 2];
+    });
+    const midY = (mk[0][1] + mk[mk.length - 1][1]) / 2;
+    const x0 = tb.left - box.left + 12;
+    const xEnd = mk[0][0];
+    const xj = x0 + Math.max(18, (xEnd - x0) * 0.2);
+    const room = Math.max(10, xEnd - xj - 16);
+    jx.origin = [x0, midY];
+    jx.paths = mk.map(([x, y]) => {
+      const dy = y - midY;
+      if (Math.abs(dy) < 0.5) {
+        return `M${x0},${midY}H${x}`;
+      }
+      const dx = Math.min(Math.abs(dy), room);
+      return `M${x0},${midY}H${xj.toFixed(1)}L${(xj + dx).toFixed(1)},${y.toFixed(1)}H${x.toFixed(1)}`;
+    });
+    svg.setAttribute("viewBox", `0 0 ${box.width} ${box.height}`);
+    svg.innerHTML =
+      jx.paths.map((d, i) => `<path class="br" d="${d}" style="stroke:var(--${DEST[i].c})"/>`).join("") +
+      `<path class="trunk" d="M${x0},${midY}H${xj.toFixed(1)}"/><circle class="origin" cx="${x0}" cy="${midY}" r="9"/>`;
+    jx.pts = $$(".br", svg).map((p) => {
+      const L = p.getTotalLength();
+      return Array.from({ length: 61 }, (_, k) => {
+        const pt = p.getPointAtLength((L * k) / 60);
+        return [pt.x, pt.y];
+      });
+    });
+  }
+  new ResizeObserver(layoutJx).observe(wrap);
+
+  function paintArrivals(di, fresh) {
+    $(`[data-arr="${di}"]`, wrap).innerHTML = jx.arrived[di]
+      .map((i) => `<span class="arr${i === fresh ? " is-new" : ""}">${esc(JV[i].src)}</span>`)
+      .join("");
+    $("#jxStatus").textContent = `${jx.sent.size} of ${JV.length} sent`;
+  }
+
+  async function send(i) {
+    const v = JV[i];
+    const di = DEST.findIndex((d) => d.t === v.t);
+    const btn = $(`[data-jv="${i}"]`, wrap);
+    btn.classList.add("sent");
+    btn.style.setProperty("--c", `var(--${DEST[di].c})`);
+    if (motionOk() && jx.pts.length) {
+      const box = wrap.getBoundingClientRect();
+      const r = btn.getBoundingClientRect();
+      const tok = document.createElement("span");
+      tok.className = "jtok";
+      tok.textContent = v.src;
+      tok.style.setProperty("--c", `var(--${DEST[di].c})`);
+      wrap.appendChild(tok);
+      const place = (x, y) => {
+        tok.style.transform = `translate(${x.toFixed(1)}px, ${y.toFixed(1)}px) translate(-50%, -50%)`;
+      };
+      const sx = r.left - box.left + r.width / 2;
+      const sy = r.top - box.top + r.height / 2;
+      const [ox, oy] = jx.origin;
+      place(sx, sy);
+      await tween(420, (k) => {
+        const e = ease(k);
+        place(sx + (ox - sx) * e, sy + (oy - sy) * e);
+      });
+      const pts = jx.pts[di];
+      await tween(950, (k) => {
+        const f = ease(k) * (pts.length - 1);
+        const a = pts[Math.floor(f)];
+        const b = pts[Math.min(pts.length - 1, Math.floor(f) + 1)];
+        const t = f - Math.floor(f);
+        place(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t);
+      });
+      tok.remove();
+      $(`[data-mk="${di}"]`, wrap).animate([{ transform: "scale(1)" }, { transform: "scale(1.5)" }, { transform: "scale(1)" }], {
+        duration: 420,
+      });
+    }
+    jx.sent.add(i);
+    if (!jx.arrived[di].includes(i)) {
+      jx.arrived[di].push(i);
+    }
+    paintArrivals(di, i);
+    $("#jxNote").innerHTML = `<code>typeof ${esc(v.src)}</code> is <code>"${v.t}"</code>. ${v.note}`;
+  }
+
+  $("#platform").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-jv]");
+    if (b) {
+      send(Number(b.dataset.jv));
+    }
+  });
+  $("#jxAll").addEventListener("click", () => {
+    JV.forEach((_, i) => setTimeout(() => send(i), motionOk() ? i * 260 : 0));
+  });
+  $("#jxClear").addEventListener("click", () => {
+    jx.arrived = DEST.map(() => []);
+    jx.sent.clear();
+    $$(".vbtn", $("#platform")).forEach((b) => b.classList.remove("sent"));
+    DEST.forEach((_, di) => paintArrivals(di, -1));
+    $("#jxNote").innerHTML = "Pick a value to send it through <code>typeof</code>. There are only eight possible answers.";
+  });
+
+  /* ---------- 2. flip cards ---------- */
+  const CARDS = [
+    ["undefined", "slate", "U", "undefined", ["undefined"], "A single <b>Oddball</b> object shared by the whole engine. Every <code>undefined</code> in your program points at it."],
+    ["null", "slate", "Nu", "object", ["null"], "Another Oddball singleton. <code>typeof null</code> says \"object\" only because fixing an old bug would break the web."],
+    ["boolean", "purple", "B", "boolean", ["true", "false"], "Two Oddball singletons, <code>true</code> and <code>false</code>, so comparing booleans compares two pointers."],
+    ["number", "blue", "N", "number", ["42", "3.14", "NaN", "-0"], "Small integers are stored inside the pointer itself as a <b>Smi</b>, with no allocation. Other numbers are 64-bit floats, boxed in a <b>HeapNumber</b> when they have to live on the heap."],
+    ["bigint", "teal", "Bi", "bigint", ["10n", "2n ** 64n"], "A heap object holding an array of digits, so it can grow as large as memory allows. Mixing it with a number, as in <code>1n + 1</code>, throws a TypeError."],
+    ["string", "green", "S", "string", ['"hi"', "'hi'", "`hi`"], "Immutable heap objects. Concatenation can build a rope (a <b>ConsString</b>) that is flattened later, and identical literals are <b>internalized</b> so they share one copy."],
+    ["symbol", "pink", "Sy", "symbol", ['Symbol("id")', "Symbol.iterator"], "A small heap object with a unique identity and an optional description. Two symbols are equal only if they are the same symbol."],
+    ["object", "orange", "O", "object", ["{ a: 1 }", "[1, 2]", "() => {}"], "A heap object with a <b>hidden class</b> (V8 calls it a map) that records its shape. Objects built the same way share a hidden class, which keeps property access fast."],
+  ];
+  $("#fcards").innerHTML = CARDS.map(([name, c, b, ty, ex, back]) => {
+    const kind =
+      name === "object"
+        ? "Mutable, shared and compared <b>by reference</b>."
+        : "Primitive: immutable, copied and compared <b>by value</b>.";
+    const quirk = { null: " (a famous bug)", object: ", or \"function\" for functions" }[name] || "";
+    return `<button type="button" class="fcard" aria-pressed="false" style="--c:var(--${c})"><span class="fc-in"><span class="fc-face fc-front"><span class="fc-top"><span class="bul">${b}</span>${name}</span><span class="fc-typeof">typeof gives <b>"${ty}"</b>${quirk}</span><span class="fc-ex">${ex.map((x) => `<code>${esc(x)}</code>`).join("")}</span><span class="fc-kind">${kind}</span><span class="fc-hint">Flip for V8 internals</span></span><span class="fc-face fc-back"><b>Inside V8</b><span>${back}</span></span></span></button>`;
+  }).join("");
+  $("#fcards").addEventListener("click", (e) => {
+    const card = e.target.closest(".fcard");
+    if (card) {
+      card.setAttribute("aria-pressed", String(card.getAttribute("aria-pressed") !== "true"));
+    }
+  });
+
+  /* ---------- 3. copy or share ---------- */
+  const CP_CODE = [
+    "const a = 10;",
+    "let b = a;",
+    "b = 20;",
+    'const user = { name: "Ana", tags: ["dev"] };',
+    "const admin = user;",
+    'admin.name = "Bob";',
+    "const clone = { ...user };",
+    'clone.name = "Cleo";',
+    'clone.tags.push("ops");',
+    "const deep = structuredClone(user);",
+    'deep.tags.push("qa");',
+    "console.log(a, b, user.name, clone.tags, deep.tags);",
+  ].join("\n");
+  const cpObj = (s, id) => s.objs.find((o) => o.id === id);
+  const cpVar = (s, n, fields) => {
+    const vars = s.frames[0].vars;
+    const v = vars.find((x) => x.n === n);
+    if (v) {
+      Object.keys(v).forEach((k) => {
+        if (k !== "n") {
+          delete v[k];
+        }
+      });
+      Object.assign(v, fields);
+    } else {
+      vars.push({ n, ...fields });
+    }
+  };
+  const str = (v) => ({ v: JSON.stringify(v), t: "string" });
+  const cpClear = (s) => {
+    s.wires = {};
+    for (const o of s.objs) {
+      delete o.hot;
+      (o.items || []).forEach((it) => delete it.hot);
+    }
+  };
+  const CP_STEPS = [
+    (s) => {
+      s.line = 1;
+      cpVar(s, "a", { v: "10", t: "number" });
+      s.note = "<code>a</code> holds the number 10 directly.";
+    },
+    (s) => {
+      s.line = 2;
+      cpVar(s, "b", { v: "10", t: "number" });
+      s.note = "<code>let b = a</code> copies the <b>value</b>. <code>b</code> gets its own 10.";
+    },
+    (s) => {
+      s.line = 3;
+      cpVar(s, "b", { v: "20", t: "number" });
+      s.note = "Changing <code>b</code> can&rsquo;t touch <code>a</code>: primitives are only ever copied, never shared.";
+    },
+    (s) => {
+      s.line = 4;
+      s.objs.push(
+        { id: "T1", type: "Array", at: [1, 0], items: [str("dev")] },
+        { id: "U", type: "Object", at: [0, 0], props: [{ k: "name", ...str("Ana") }, { k: "tags", to: "T1" }], hot: true },
+      );
+      cpVar(s, "user", { to: "U" });
+      s.note =
+        "An object literal creates an object on the heap, and <code>user</code> holds a <b>reference</b> to it. Its <code>tags</code> property refers to an array.";
+    },
+    (s) => {
+      s.line = 5;
+      cpVar(s, "admin", { to: "U" });
+      s.wires = { "g:admin>U": "hot" };
+      s.note = "<code>const admin = user</code> copies the reference: one object, two names.";
+    },
+    (s) => {
+      s.line = 6;
+      cpObj(s, "U").props[0] = { k: "name", ...str("Bob") };
+      cpObj(s, "U").hot = true;
+      s.note =
+        "So a change made through <code>admin</code> shows up through <code>user</code>. <code>const</code> only stops you rebinding the name; the object stays mutable.";
+    },
+    (s) => {
+      s.line = 7;
+      s.objs.push({ id: "C", type: "Object", at: [0, 1], props: [{ k: "name", ...str("Bob") }, { k: "tags", to: "T1" }], hot: true });
+      cpVar(s, "clone", { to: "C" });
+      s.note =
+        "Spread makes a <b>shallow</b> copy: a brand-new object, but its <code>tags</code> property still points at the <b>same</b> array.";
+    },
+    (s) => {
+      s.line = 8;
+      cpObj(s, "C").props[0] = { k: "name", ...str("Cleo") };
+      cpObj(s, "C").hot = true;
+      s.note = "Top-level properties are independent now: <code>user.name</code> is still \"Bob\".";
+    },
+    (s) => {
+      s.line = 9;
+      cpObj(s, "T1").items.push({ ...str("ops"), hot: true });
+      s.note =
+        "But the nested array is shared, so <code>clone.tags.push(\"ops\")</code> changes <code>user.tags</code> as well.";
+    },
+    (s) => {
+      s.line = 10;
+      s.objs.push(
+        { id: "T2", type: "Array", at: [1, 2], items: [str("dev"), str("ops")] },
+        { id: "D", type: "Object", at: [0, 2], props: [{ k: "name", ...str("Bob") }, { k: "tags", to: "T2" }], hot: true },
+      );
+      cpVar(s, "deep", { to: "D" });
+      s.note = "<code>structuredClone</code> copies <b>deeply</b>: a new object with a new array inside.";
+    },
+    (s) => {
+      s.line = 11;
+      cpObj(s, "T2").items.push({ ...str("qa"), hot: true });
+      s.note = "So pushing to <code>deep.tags</code> leaves every other array alone.";
+    },
+    (s) => {
+      s.line = 12;
+      s.out = ["10 20 Bob [ 'dev', 'ops' ] [ 'dev', 'ops', 'qa' ]"];
+      s.note =
+        "<code>a</code> kept 10, <code>user.name</code> became Bob through <code>admin</code>, the shallow clone shares <code>['dev', 'ops']</code>, and only the deep copy has <code>'qa'</code>.";
+    },
+  ].map((fn) => (s) => {
+    cpClear(s);
+    fn(s);
+  });
+  const cpMem = MemView($("#cpMem"), { refc: false, cols: 2, emptyHeap: "Nothing on the heap yet" });
+  const cpPlayer = Player({ dock: $("#cpDock"), root: $("#cpStage"), render: (st, ctx) => cpMem.render(st, ctx), codeEl: $("#cpCode"), outEl: $("#cpOut") });
+  cpPlayer.load(
+    buildStates(
+      {
+        line: 0,
+        note: "Watch what each assignment copies: a value, or a reference to the same object.",
+        frames: [{ id: "g", name: "script scope", vars: [] }],
+        objs: [],
+        out: [],
+        cols: 2,
+      },
+      CP_STEPS,
+    ),
+    { code: CP_CODE, lang: "js" },
+  );
+
+  /* ---------- 4. == lab ---------- */
+  const EQV = [
+    ["0", () => 0],
+    ["1", () => 1],
+    ["-0", () => -0],
+    ['""', () => ""],
+    ['"0"', () => "0"],
+    ['"1"', () => "1"],
+    ['"abc"', () => "abc"],
+    ["true", () => true],
+    ["false", () => false],
+    ["null", () => null],
+    ["undefined", () => undefined],
+    ["NaN", () => NaN],
+    ["[]", () => []],
+    ["[0]", () => [0]],
+    ["{}", () => ({})],
+  ];
+  const tn = (v) => {
+    if (v === null) {
+      return "Null";
+    }
+    if (v === undefined) {
+      return "Undefined";
+    }
+    if (typeof v === "object") {
+      return "Object";
+    }
+    return { boolean: "Boolean", number: "Number", string: "String" }[typeof v];
+  };
+  const sv = (v) => {
+    if (typeof v === "string") {
+      return JSON.stringify(v);
+    }
+    if (Object.is(v, -0)) {
+      return "-0";
+    }
+    if (Array.isArray(v)) {
+      return `[${v.map(sv).join(", ")}]`;
+    }
+    if (v !== null && typeof v === "object") {
+      return "{}";
+    }
+    return String(v);
+  };
+  const cv = (v) => `<code>${esc(sv(v))}</code>`;
+  const noun = (t) => {
+    if (t === "Null" || t === "Undefined") {
+      return `<code>${t.toLowerCase()}</code>`;
+    }
+    return t === "Object" ? "an object" : `a ${t.toLowerCase()}`;
+  };
+  const cap = (h) => h.charAt(0).toUpperCase() + h.slice(1);
+
+  function loose(a, b) {
+    let x = a;
+    let y = b;
+    const steps = [];
+    for (let guard = 0; guard < 8; guard += 1) {
+      const tx = tn(x);
+      const ty = tn(y);
+      const now = `${sv(x)} == ${sv(y)}`;
+      if (tx === ty) {
+        let why = `Both are ${tx === "Null" || tx === "Undefined" ? tx.toLowerCase() : `${tx.toLowerCase()}s`}, so it compares like <code>===</code>.`;
+        if (tx === "Object") {
+          why = "Both are objects, so <code>==</code> compares identity. These are two different objects.";
+        } else if (tx === "Number" && (Number.isNaN(x) || Number.isNaN(y))) {
+          why = "Both are numbers, but NaN is not equal to anything, not even itself.";
+        } else if (tx === "Number" && x === 0 && !Object.is(x, y)) {
+          why = "Both are numbers, and 0 and -0 count as equal.";
+        }
+        steps.push({ now, why });
+        return { steps, res: x === y };
+      }
+      if ((tx === "Null" && ty === "Undefined") || (tx === "Undefined" && ty === "Null")) {
+        steps.push({ now, why: "<code>null</code> and <code>undefined</code> are loosely equal to each other, and to nothing else." });
+        return { steps, res: true };
+      }
+      if (tx === "Number" && ty === "String") {
+        const n = Number(y);
+        steps.push({ now, why: `A number and a string: the string is converted, and ToNumber(${cv(y)}) is ${cv(n)}.` });
+        y = n;
+      } else if (tx === "String" && ty === "Number") {
+        const n = Number(x);
+        steps.push({ now, why: `A string and a number: the string is converted, and ToNumber(${cv(x)}) is ${cv(n)}.` });
+        x = n;
+      } else if (tx === "Boolean") {
+        const n = Number(x);
+        steps.push({ now, why: `A boolean is always turned into a number first: ${cv(x)} becomes ${cv(n)}.` });
+        x = n;
+      } else if (ty === "Boolean") {
+        const n = Number(y);
+        steps.push({ now, why: `A boolean is always turned into a number first: ${cv(y)} becomes ${cv(n)}.` });
+        y = n;
+      } else if ((tx === "Number" || tx === "String") && ty === "Object") {
+        const p = String(y);
+        steps.push({ now, why: `An object meets a primitive, so ToPrimitive(${cv(y)}) runs: <code>valueOf()</code> returns the object itself, so <code>toString()</code> is used and gives ${cv(p)}.` });
+        y = p;
+      } else if (tx === "Object" && (ty === "Number" || ty === "String")) {
+        const p = String(x);
+        steps.push({ now, why: `An object meets a primitive, so ToPrimitive(${cv(x)}) runs: <code>valueOf()</code> returns the object itself, so <code>toString()</code> is used and gives ${cv(p)}.` });
+        x = p;
+      } else {
+        steps.push({ now, why: `${cap(noun(tx))} and ${noun(ty)}: no conversion rule applies, so the answer is <code>false</code>.` });
+        return { steps, res: false };
+      }
+    }
+    return { steps, res: false };
+  }
+
+  const MX = { "==": [], "===": [], is: [] };
+  EQV.forEach(([, fa], i) => {
+    MX["=="][i] = [];
+    MX["==="][i] = [];
+    MX.is[i] = [];
+    EQV.forEach(([, fb], j) => {
+      MX["=="][i][j] = loose(fa(), fb()).res;
+      MX["==="][i][j] = fa() === fb();
+      MX.is[i][j] = Object.is(fa(), fb());
+    });
+  });
+  const EQ = { l: 12, r: 8, op: "==" };
+  $("#eqL").innerHTML = EQV.map(([s], i) => `<button type="button" class="vbtn" data-i="${i}" aria-pressed="false">${esc(s)}</button>`).join("");
+  $("#eqR").innerHTML = $("#eqL").innerHTML;
+
+  function paintMatrix() {
+    const head = EQV.map(([s]) => `<th scope="col"><span>${esc(s)}</span></th>`).join("");
+    const rows = EQV.map(
+      ([s], i) =>
+        `<tr><th scope="row">${esc(s)}</th>${EQV.map(
+          ([t], j) =>
+            `<td><button type="button" tabindex="-1" data-i="${i}" data-j="${j}" data-r="${MX[EQ.op][i][j] ? 1 : 0}" class="${MX[EQ.op][i][j] ? "y" : ""}${i === EQ.l && j === EQ.r ? " sel" : ""}" aria-label="${esc(s)} ${EQ.op === "is" ? "Object.is" : EQ.op} ${esc(t)}: ${MX[EQ.op][i][j]}"></button></td>`,
+        ).join("")}</tr>`,
+    ).join("");
+    $("#eqMx").innerHTML = `<thead><tr><th></th>${head}</tr></thead><tbody>${rows}</tbody>`;
+  }
+
+  function paintEq() {
+    const a = EQV[EQ.l];
+    const b = EQV[EQ.r];
+    $$("button", $("#eqL")).forEach((x) => x.setAttribute("aria-pressed", String(Number(x.dataset.i) === EQ.l)));
+    $$("button", $("#eqR")).forEach((x) => x.setAttribute("aria-pressed", String(Number(x.dataset.i) === EQ.r)));
+    const tr = loose(a[1](), b[1]());
+    $("#eqTitle").textContent = `${a[0]} == ${b[0]}`;
+    $("#eqStatus").textContent = `${tr.steps.length} step${tr.steps.length > 1 ? "s" : ""}`;
+    const res = [
+      [`${a[0]} == ${b[0]}`, MX["=="][EQ.l][EQ.r]],
+      [`${a[0]} === ${b[0]}`, MX["==="][EQ.l][EQ.r]],
+      [`Object.is(${a[0]}, ${b[0]})`, MX.is[EQ.l][EQ.r]],
+    ];
+    $("#eqRes").innerHTML = res
+      .map(([e, v]) => `<div class="res ${v ? "t" : "f"}"><code>${esc(e)}</code><b>${v}</b></div>`)
+      .join("");
+    $("#eqTrace").innerHTML =
+      tr.steps
+        .map((s, i) => `<li style="--i:${i}"><code class="tr-now">${esc(s.now)}</code><span class="tr-why">${s.why}</span></li>`)
+        .join("") +
+      `<li class="final" style="--i:${tr.steps.length}"><code class="tr-now">${tr.res}</code><span class="tr-why">So <code>${esc(a[0])} == ${esc(b[0])}</code> is <b>${tr.res}</b>.</span></li>`;
+    paintMatrix();
+  }
+
+  $("#eqL").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) {
+      EQ.l = Number(b.dataset.i);
+      paintEq();
+    }
+  });
+  $("#eqR").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) {
+      EQ.r = Number(b.dataset.i);
+      paintEq();
+    }
+  });
+  $("#eqMx").addEventListener("click", (e) => {
+    const b = e.target.closest("button[data-i]");
+    if (b) {
+      EQ.l = Number(b.dataset.i);
+      EQ.r = Number(b.dataset.j);
+      paintEq();
+    }
+  });
+  $("#mxSeg").addEventListener("click", (e) => {
+    const b = e.target.closest("button");
+    if (b) {
+      EQ.op = b.dataset.op;
+      $$("button", $("#mxSeg")).forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
+      paintMatrix();
+    }
+  });
+  paintEq();
+
+  /* ---------- 5. truthy sorter ---------- */
+  const TF = [
+    ['"0"', () => "0", "Any non-empty string is truthy, even <code>\"0\"</code>."],
+    ["0", () => 0, "Zero is falsy."],
+    ["[]", () => [], "An empty array is still an object, and every object is truthy."],
+    ['""', () => "", "The empty string is falsy."],
+    ["NaN", () => NaN, "NaN is falsy."],
+    ['"false"', () => "false", "A non-empty string is truthy, whatever it says."],
+    ["null", () => null, "<code>null</code> is falsy."],
+    ["{}", () => ({}), "Every object is truthy, empty or not."],
+    ["-0", () => -0, "Negative zero is falsy, just like 0."],
+    ['" "', () => " ", "A space is a character, so the string isn&rsquo;t empty: truthy."],
+    ["undefined", () => undefined, "<code>undefined</code> is falsy."],
+    ["-1", () => -1, "Every number except 0, -0 and NaN is truthy."],
+    ["0n", () => 0n, "BigInt zero is falsy too."],
+    ["Infinity", () => Infinity, "Infinity is a non-zero number, so it&rsquo;s truthy."],
+    ["false", () => false, "<code>false</code> is falsy, of course."],
+    ["new Boolean(false)", () => Object(false), "A Boolean <b>object</b> wrapping false. Objects are always truthy, which is one reason never to use <code>new Boolean</code>."],
+  ].map(([src, make, why]) => ({ src, truthy: Boolean(make()), why }));
+  const tf = { sel: null, placed: new Map(), right: 0 };
+
+  function paintTf() {
+    const root = $("#tfStage");
+    const snap = motionOk() ? Flip.snap(root) : null;
+    const chip = (v, i, cls) => `<span class="tchip ${cls}" data-k="tf${i}">${esc(v.src)}</span>`;
+    $("#tfPool").innerHTML =
+      TF.map((v, i) =>
+        tf.placed.has(i)
+          ? ""
+          : `<button type="button" class="vbtn" data-k="tf${i}" data-tf="${i}" aria-pressed="${tf.sel === i}">${esc(v.src)}</button>`,
+      ).join("") || '<span class="empty">All sorted.</span>';
+    for (const [bin, id] of [
+      [true, "#tfT"],
+      [false, "#tfF"],
+    ]) {
+      $(id).innerHTML = TF.map((v, i) =>
+        tf.placed.has(i) && v.truthy === bin ? chip(v, i, tf.placed.get(i) ? "ok" : "miss") : "",
+      ).join("");
+    }
+    $$(".bin", root).forEach((b) => b.classList.toggle("ready", tf.sel !== null));
+    $("#tfScore").textContent =
+      tf.placed.size === TF.length
+        ? `${tf.right} of ${TF.length} right`
+        : `${tf.placed.size} of ${TF.length} sorted, ${tf.right} right`;
+    if (snap) {
+      Flip.play(root, snap, { dur: 560 });
+    }
+  }
+
+  $("#tfPool").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-tf]");
+    if (b) {
+      tf.sel = Number(b.dataset.tf);
+      $("#tfNote").innerHTML = `<code>${esc(TF[tf.sel].src)}</code> selected. Now pick a bin.`;
+      paintTf();
+    }
+  });
+  $$(".bin", $("#tfStage")).forEach((bin) =>
+    bin.addEventListener("click", () => {
+      if (tf.sel === null) {
+        $("#tfNote").innerHTML = "Pick a value first.";
+        return;
+      }
+      const v = TF[tf.sel];
+      const guess = bin.dataset.bin === "1";
+      const ok = guess === v.truthy;
+      tf.placed.set(tf.sel, ok);
+      if (ok) {
+        tf.right += 1;
+      }
+      $("#tfNote").innerHTML = `${ok ? "<b>Right.</b>" : "<b>Not quite:</b> it&rsquo;s " + (v.truthy ? "truthy" : "falsy") + "."} ${v.why}`;
+      tf.sel = null;
+      paintTf();
+    }),
+  );
+  $("#tfReset").addEventListener("click", () => {
+    tf.sel = null;
+    tf.placed.clear();
+    tf.right = 0;
+    $("#tfNote").innerHTML = "Pick a value first.";
+    paintTf();
+  });
+  paintTf();
+
+  /* ---------- 6. float bits ---------- */
+  const dv = new DataView(new ArrayBuffer(8));
+  const toBits = (x) => {
+    dv.setFloat64(0, x);
+    return dv.getBigUint64(0);
+  };
+  const fromBits = (b) => {
+    dv.setBigUint64(0, b);
+    return dv.getFloat64(0);
+  };
+  const fracDec = (num, pow2) => {
+    if (num === 0n) {
+      return "0";
+    }
+    if (pow2 <= 0) {
+      return (num << BigInt(-pow2)).toString();
+    }
+    const digits = (num * 5n ** BigInt(pow2)).toString().padStart(pow2 + 1, "0");
+    const frac = digits.slice(-pow2).replace(/0+$/, "");
+    return frac ? `${digits.slice(0, -pow2)}.${frac}` : digits.slice(0, -pow2);
+  };
+  const jsStr = (x) => (Object.is(x, -0) ? "-0" : String(x));
+  const PRESETS = [
+    ["0.1", 0.1, "0.1 has no finite binary expansion, so the double closest to it is stored instead."],
+    ["0.2", 0.2, "Also slightly more than 0.2."],
+    ["0.1 + 0.2", 0.1 + 0.2, "The two rounding errors add up: this is a different double from the one written as 0.3, so <code>0.1 + 0.2 === 0.3</code> is false."],
+    ["0.3", 0.3, "The double closest to 0.3 is slightly <b>less</b> than 0.3."],
+    ["1", 1, "Exponent 1023 means 2 to the power 0, and the fraction is all zeros."],
+    ["-2", -2, "Only the sign bit and the exponent differ from 1."],
+    ["2 ** 53", 2 ** 53, "From here up, the gap between neighbouring doubles is 2, so not every integer fits."],
+    ["2 ** 53 + 1", 2 ** 53 + 1, "The + 1 falls off the end of the 52-bit fraction and rounds back to 2 ** 53."],
+    ["Number.MAX_SAFE_INTEGER", Number.MAX_SAFE_INTEGER, "The largest integer n where n and n + 1 are both exact: 2 ** 53 - 1."],
+    ["5e-324", 5e-324, "The smallest positive double: a subnormal number, with every exponent bit zero."],
+    ["-0", -0, "Zero with the sign bit set. <code>-0 === 0</code> is true, but <code>Object.is(-0, 0)</code> is false."],
+    ["Infinity", Infinity, "All exponent bits set and a zero fraction."],
+    ["NaN", NaN, "All exponent bits set and a non-zero fraction. There are many NaN bit patterns, and none equals itself."],
+  ];
+  const fp = { bits: toBits(0.1), note: PRESETS[0][2] };
+  $("#fpPre").innerHTML = PRESETS.map(([l], i) => `<button type="button" class="vbtn" data-p="${i}">${esc(l)}</button>`).join("");
+
+  function paintFp() {
+    const bits = fp.bits;
+    const x = fromBits(bits);
+    const sign = Number(bits >> 63n);
+    const e = Number((bits >> 52n) & 0x7ffn);
+    const f = bits & ((1n << 52n) - 1n);
+    const bitStr = bits.toString(2).padStart(64, "0");
+    const grp = (from, to, name, c) =>
+      `<div class="bgrp" style="--c:var(--${c})"><span class="bgrp-h">${name}</span><span class="bcells">${bitStr
+        .slice(from, to)
+        .split("")
+        .map((ch, k) => `<button type="button" class="bit${ch === "1" ? " on" : ""}" data-b="${from + k}" aria-label="bit ${63 - from - k}: ${ch}">${ch}</button>`)
+        .join("")}</span></div>`;
+    $("#fpBits").innerHTML = grp(0, 1, "sign", "pink") + grp(1, 12, "exponent (11 bits)", "orange") + grp(12, 64, "fraction (52 bits)", "blue");
+    let kind = "normal number";
+    let expText = `${e} &minus; 1023 = <span class="k">${e - 1023}</span>`;
+    let sig = `1 + ${fracDec(f, 52)}`;
+    let exact = "";
+    if (e === 2047) {
+      kind = f === 0n ? "infinity" : "NaN";
+      expText = "2047: all ones, a special value";
+      sig = f === 0n ? "fraction 0 means Infinity" : "non-zero fraction means NaN";
+      exact = f === 0n ? `${sign ? "-" : ""}Infinity` : "NaN";
+    } else if (e === 0) {
+      kind = f === 0n ? "zero" : "subnormal number";
+      expText = `0: special, read as 1 &minus; 1023 = <span class="k">-1022</span> with no leading 1`;
+      sig = `0 + ${fracDec(f, 52)}`;
+      exact = (sign ? "-" : "") + fracDec(f, 1074);
+    } else {
+      exact = (sign ? "-" : "") + fracDec(f | (1n << 52n), 1075 - e);
+    }
+    let next = "";
+    if (Number.isFinite(x)) {
+      let up = Number.MIN_VALUE;
+      if (x > 0) {
+        up = fromBits(bits + 1n);
+      } else if (x < 0) {
+        up = -fromBits((bits & ~(1n << 63n)) - 1n);
+      }
+      next = Number.isFinite(up) ? `${jsStr(up)}, a gap of ${jsStr(Math.abs(up - x))}` : "Infinity";
+    }
+    $("#fpTitle").textContent = jsStr(x);
+    $("#fpKind").textContent = kind;
+    const rows = [
+      ["Sign", `<span class="k">${sign}</span> means ${sign ? "negative" : "positive"}`],
+      ["Exponent", expText],
+      ["Significand", esc(sig)],
+      ["Stored exactly", `<span class="k">${esc(exact)}</span>`, "long"],
+      ["JavaScript prints", esc(jsStr(x))],
+      ["Next double up", next ? esc(next) : "none"],
+    ];
+    $("#fpRead").innerHTML = rows.map(([k, v, cls]) => `<dt>${k}</dt><dd class="${cls || ""}" style="--c:var(--blue)">${v}</dd>`).join("");
+    $("#fpNote").innerHTML = fp.note;
+  }
+
+  $("#fpBits").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-b]");
+    if (b) {
+      fp.bits ^= 1n << BigInt(63 - Number(b.dataset.b));
+      fp.note = "You flipped a bit. Every pattern of 64 bits is some double, NaN or infinity.";
+      $("#fpIn").value = jsStr(fromBits(fp.bits));
+      $("#fpErr").textContent = "";
+      paintFp();
+    }
+  });
+  $("#fpPre").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-p]");
+    if (b) {
+      const [label, x, note] = PRESETS[Number(b.dataset.p)];
+      fp.bits = toBits(x);
+      fp.note = note;
+      $("#fpIn").value = label;
+      $("#fpErr").textContent = "";
+      paintFp();
+    }
+  });
+  $("#fpIn").addEventListener("input", (e) => {
+    const text = e.target.value.trim();
+    const x = Number(text);
+    if (text === "" || (Number.isNaN(x) && text !== "NaN")) {
+      $("#fpErr").textContent = "Type a number literal such as 0.1, -42 or 1e-7.";
+      return;
+    }
+    $("#fpErr").textContent = "";
+    fp.bits = toBits(x);
+    fp.note = "";
+    paintFp();
+  });
+  paintFp();
+
+  /* ---------- route ---------- */
+  const SECTIONS = ["#jx", "#cards", "#copy", "#eq", "#truthy", "#bits"];
+  routeMap(
+    $("#route"),
+    [
+      { label: "The typeof junction", sub: "eight possible answers" },
+      { label: "Seven primitives", sub: "and how V8 stores them" },
+      { label: "Copy or share", sub: "values and references" },
+      { label: "What == does", sub: "conversions, step by step" },
+      { label: "Truthy or falsy", sub: "a sorting game" },
+      { label: "Inside a number", sub: "64 bits of a double" },
+    ],
+    { onPick: (i) => scrollToEl($(SECTIONS[i])) },
+  );
+  layoutJx();
+  if (document.fonts && document.fonts.ready) {
+    document.fonts.ready.then(layoutJx);
+  }
+})();
+</script>
+</body>
+</html>
